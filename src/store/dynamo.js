@@ -41,25 +41,24 @@ const getDumpId = ({ clientId }) => `${clientId}.gz`;
  */
 async function saveEntry(data) {
     try {
-        const { conferenceId = 'undefined',
-            conferenceUrl = 'undefined',
-            userId = 'undefined',
-            app = 'undefined',
-
-            // sessionId naming here might be confusing, this actually refers to the meeting unique id
-            sessionId = 'undefined',
+        const { conferenceId,
+            conferenceUrl,
+            userId,
+            app,
+            sessionId, // sessionId naming here might be confusing, this actually refers to the meeting unique id
             baseDumpId,
             startDate,
             endDate
         } = data;
 
-        const entry = { dumpId: getDumpId(data),
-            conferenceId: conferenceId.toLowerCase(),
-            conferenceUrl: conferenceUrl.toLowerCase(),
-            userId,
+        const entry = {
+            dumpId: getDumpId(data),
+            conferenceId: conferenceId?.toLowerCase() ?? 'undefined',
+            conferenceUrl: conferenceUrl?.toLowerCase() ?? 'undefined',
+            userId: userId ?? 'undefined',
+            sessionId: sessionId ?? 'undefined',
+            app: app ?? 'undefined',
             baseDumpId,
-            app,
-            sessionId,
             startDate,
             endDate
         };
