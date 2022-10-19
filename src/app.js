@@ -1,4 +1,5 @@
 const JSONStream = require('JSONStream');
+const assert = require('assert').strict;
 const config = require('config');
 const fs = require('fs');
 const http = require('http');
@@ -10,56 +11,21 @@ const WebSocket = require('ws');
 const { name: appName, version: appVersion } = require('../package');
 
 const AmplitudeConnector = require('./database/AmplitudeConnector');
+const FeaturesPublisher = require('./database/FeaturesPublisher');
 const FirehoseConnector = require('./database/FirehoseConnector');
 const DemuxSink = require('./demux');
 const logger = require('./logging');
 const PromCollector = require('./metrics/PromCollector');
-const saveEntryAssureUnique = require('./store/dynamo').saveEntryAssureUnique;
+const { saveEntryAssureUnique } = require('./store/dynamo');
+const initS3Store = require('./store/s3.js');
 const { getStatsFormat } = require('./utils/stats-detection');
 const { asyncDeleteFile, getEnvName, getIdealWorkerCount, RequestType, ResponseType } = require('./utils/utils');
 const WorkerPool = require('./worker-pool/WorkerPool');
 
-// Configure store, fall back to S3
-let store;
-
-if (!store) {
-    store = require('./store/s3.js')(config.s3);
-}
-
-// Configure Amplitude backend
 let amplitude;
-
-if (config.amplitude && config.amplitude.key) {
-    amplitude = new AmplitudeConnector(config.amplitude.key);
-} else {
-    logger.warn('[App] Amplitude is not configured!');
-}
-
-
-let dataWarehouse;
-
-const { firehose: { meetingStatsStream, pcStatsStream, trackStatsStream, e2ePingStream, faceLandmarksStream,
-    region: firehoseAwsRegion } } = config;
-
-if (meetingStatsStream
-    && pcStatsStream
-    && trackStatsStream
-    && e2ePingStream
-    && faceLandmarksStream
-    && firehoseAwsRegion) {
-
-    const appEnv = config.server?.appEnvironment;
-
-    dataWarehouse = new FirehoseConnector({ ...config.firehose,
-        appEnv });
-
-    dataWarehouse.connect();
-} else {
-    logger.warn('[App] Firehose is not configured!');
-}
-
-
-const tempPath = config.server.tempPath;
+let store;
+let featPublisher;
+let tempPath;
 
 /**
  * Store the dump to the configured store. The dump file might be stored under a different
@@ -72,7 +38,7 @@ async function storeDump(clientId, uniqueClientId) {
     const dumpPath = `${tempPath}/${clientId}`;
 
     try {
-        await store.put(uniqueClientId, dumpPath);
+        await store?.put(uniqueClientId, dumpPath);
     } catch (err) {
         PromCollector.storageErrorCount.inc();
 
@@ -107,42 +73,36 @@ const workerScriptPath = path.join(__dirname, './worker-pool/ExtractWorker.js');
 const workerPool = new WorkerPool(workerScriptPath, getIdealWorkerCount());
 
 workerPool.on(ResponseType.DONE, body => {
-    logger.info('[App] Handling DONE event with body %o', body);
-
     const { dumpInfo = {}, features = {} } = body;
-    const { metrics: { dsRequestBytes = 0,
-        dumpFileSizeBytes = 0,
-        otherRequestBytes = 0,
-        statsRequestBytes = 0,
-        sdpRequestBytes = 0,
-        sentimentRequestBytes = 0,
-        sessionDurationMs = 0,
-        totalProcessedBytes = 0,
-        totalProcessedCount = 0 } } = features;
 
-    PromCollector.processed.inc();
-    PromCollector.dsRequestSizeBytes.observe(dsRequestBytes);
-    PromCollector.otherRequestSizeBytes.observe(otherRequestBytes);
-    PromCollector.statsRequestSizeBytes.observe(statsRequestBytes);
-    PromCollector.sdpRequestSizeBytes.observe(sdpRequestBytes);
-    PromCollector.sessionDurationMs.observe(sessionDurationMs);
-    PromCollector.sentimentRequestSizeBytes.observe(sentimentRequestBytes);
-    PromCollector.totalProcessedBytes.observe(totalProcessedBytes);
-    PromCollector.totalProcessedCount.observe(totalProcessedCount);
-    PromCollector.dumpSize.observe(dumpFileSizeBytes);
+    try {
+        logger.info('[App] Handling DONE event with body %o', body);
 
-    // Amplitude has constraints and limits of what information one sends, so it has a designated backend which
-    // only sends specific features.
-    if (amplitude) {
-        amplitude.track(dumpInfo, features);
-    }
+        const { metrics: { dsRequestBytes = 0,
+            dumpFileSizeBytes = 0,
+            otherRequestBytes = 0,
+            statsRequestBytes = 0,
+            sdpRequestBytes = 0,
+            sentimentRequestBytes = 0,
+            sessionDurationMs = 0,
+            totalProcessedBytes = 0,
+            totalProcessedCount = 0 } } = features;
 
-    if (dataWarehouse) {
-        try {
-            dataWarehouse.put(body);
-        } catch (e) {
-            logger.error('[App] Handling ERROR event with error %o and body %o', e, body);
-        }
+        PromCollector.processed.inc();
+        PromCollector.dsRequestSizeBytes.observe(dsRequestBytes);
+        PromCollector.otherRequestSizeBytes.observe(otherRequestBytes);
+        PromCollector.statsRequestSizeBytes.observe(statsRequestBytes);
+        PromCollector.sdpRequestSizeBytes.observe(sdpRequestBytes);
+        PromCollector.sessionDurationMs.observe(sessionDurationMs);
+        PromCollector.sentimentRequestSizeBytes.observe(sentimentRequestBytes);
+        PromCollector.totalProcessedBytes.observe(totalProcessedBytes);
+        PromCollector.totalProcessedCount.observe(totalProcessedCount);
+        PromCollector.dumpSize.observe(dumpFileSizeBytes);
+
+        amplitude?.track(dumpInfo, features);
+        featPublisher?.publish(body);
+    } catch (e) {
+        logger.error('[App] Handling DONE event error %o and body %o', e, body);
     }
 
     persistDumpData(dumpInfo);
@@ -170,10 +130,61 @@ workerPool.on(ResponseType.ERROR, body => {
 });
 
 /**
- *
+ * Initialize the service which will persist the dump files.
+ */
+function setupDumpStorage() {
+    if (config.s3?.region) {
+        store = initS3Store(config.s3);
+    } else {
+        logger.warn('[App] S3 is not configured!');
+    }
+}
+
+/**
+ * Configure Amplitude backend
+ */
+function setupAmplitudeConnector() {
+    const { amplitude: { key } = {} } = config;
+
+    if (key) {
+        amplitude = new AmplitudeConnector(key);
+    } else {
+        logger.warn('[App] Amplitude is not configured!');
+    }
+}
+
+/**
+ * Initialize the service that will send extracted features to the configured database.
+ */
+function setupFeaturesPublisher() {
+    const {
+        firehose = {},
+        server: {
+            appEnvironment
+        }
+    } = config;
+
+    // We use the `region` as a sort of enabled/disabled flag, if this config is set then so to must all other
+    // parameters in the firehose config section, invariant check will fail otherwise and the server
+    // will fail to start.
+    if (firehose.region) {
+        const dbConnector = new FirehoseConnector(firehose);
+
+        featPublisher = new FeaturesPublisher(dbConnector, appEnvironment);
+    } else {
+        logger.warn('[App] Firehose is not configured!');
+    }
+}
+
+/**
+ * Initialize the directory where temporary dump files will be stored.
  */
 function setupWorkDirectory() {
     try {
+        // Temporary path for stats dumps must be configured.
+        tempPath = config.server.tempPath;
+        assert(tempPath);
+
         if (fs.existsSync(tempPath)) {
             fs.readdirSync(tempPath).forEach(fname => {
                 try {
@@ -196,56 +207,17 @@ function setupWorkDirectory() {
 }
 
 /**
- *
- * @param {*} request
- * @param {*} response
+ * Initialize http server exposing prometheus statistics.
  */
-function serverHandler(request, response) {
-    switch (request.url) {
-    case '/healthcheck':
-        response.writeHead(200);
-        response.end();
-        break;
-    case '/bindcheck':
-        logger.info('Accessing bind check!');
-        response.writeHead(200);
-        response.end();
-        break;
-    default:
-        response.writeHead(404);
-        response.end();
+function setupMetricsServer() {
+    const { metrics: port } = config.get('server');
+
+    if (!port) {
+        logger.warn('[App] Metrics server is not configured!');
+
+        return;
     }
-}
 
-/**
- * In case one wants to run the server locally, https is required, as browsers normally won't allow non
- * secure web sockets on a https domain, so something like the bello
- * server instead of http.
- *
- * @param {number} port
- */
-function setupHttpsServer(port) {
-    const options = {
-        key: fs.readFileSync(config.get('server').keyPath),
-        cert: fs.readFileSync(config.get('server').certPath)
-    };
-
-    return https.createServer(options, serverHandler).listen(port);
-}
-
-/**
- *
- * @param {*} port
- */
-function setupHttpServer(port) {
-    return http.createServer(serverHandler).listen(port);
-}
-
-/**
- *
- * @param {*} port
- */
-function setupMetricsServer(port) {
     const metricsServer = http
         .createServer((request, response) => {
             switch (request.url) {
@@ -266,6 +238,10 @@ function setupMetricsServer(port) {
 }
 
 /**
+ * Main handler for web socket connections.
+ * Messages are sent through a node stream which saves them to a dump file.
+ * After the websocket is closed the session is considered as terminated and the associated dump
+ * is queued up for feature extraction through the {@code WorkerPool} implementation.
  *
  * @param {*} client
  * @param {*} upgradeReq
@@ -275,8 +251,6 @@ function wsConnectionHandler(client, upgradeReq) {
 
     // the url the client is coming from
     const referer = upgradeReq.headers.origin + upgradeReq.url;
-
-    // TODO: check against known/valid urls
     const ua = upgradeReq.headers['user-agent'];
 
     // During feature extraction we need information about the browser in order to decide which algorithms use.
@@ -326,9 +300,11 @@ function wsConnectionHandler(client, upgradeReq) {
         if (config.features.disableFeatExtraction || connectionInfo.clientProtocol?.includes('JVB')) {
             persistDumpData(dumpData);
         } else {
-        // Add the clientId in the worker pool so it can process the associated dump file.
-            workerPool.addTask({ type: RequestType.PROCESS,
-                body: dumpData });
+            // Add the clientId in the worker pool so it can process the associated dump file.
+            workerPool.addTask({
+                type: RequestType.PROCESS,
+                body: dumpData
+            });
         }
     });
 
@@ -383,25 +359,91 @@ function setupWebSocketsServer(wsServer) {
 }
 
 /**
+ * Handler used for basic availability checks.
  *
+ * @param {*} request
+ * @param {*} response
  */
-function run() {
-    logger.info('[App] Initializing: %s; version: %s; env: %s ...', appName, appVersion, getEnvName());
-    let server;
+function serverHandler(request, response) {
+    switch (request.url) {
+    case '/healthcheck':
+        response.writeHead(200);
+        response.end();
+        break;
+    case '/bindcheck':
+        logger.info('Accessing bind check!');
+        response.writeHead(200);
+        response.end();
+        break;
+    default:
+        response.writeHead(404);
+        response.end();
+    }
+}
 
-    setupWorkDirectory();
+/**
+ * In case one wants to run the server locally, https is required, as browsers normally won't allow non
+ * secure web sockets on a https domain, so something like the bello
+ * server instead of http.
+ *
+ * @param {number} port
+ */
+function setupHttpsServer(port) {
+    const { keyPath, certPath } = config.get('server');
 
-    if (config.get('server').useHTTPS) {
-        server = setupHttpsServer(config.get('server').port);
-    } else {
-        server = setupHttpServer(config.get('server').port);
+    if (!(keyPath && certPath)) {
+        throw new Error('[App] Please provide certificates for the https server!');
     }
 
-    if (config.get('server').metrics) {
-        setupMetricsServer(config.get('server').metrics);
+    const options = {
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath)
+    };
+
+    return https.createServer(options, serverHandler).listen(port);
+}
+
+/**
+ *
+ */
+function setupHttpServer(port) {
+    return http.createServer(serverHandler).listen(port);
+}
+
+
+/**
+ * Initialize the http or https server used for websocket connections.
+ */
+function setupWebServer() {
+    const { useHTTPS, port } = config.get('server');
+
+    if (!port) {
+        throw new Error('[App] Please provide a server port!');
+    }
+
+    let server;
+
+    if (useHTTPS) {
+        server = setupHttpsServer(port);
+    } else {
+        server = setupHttpServer(port);
     }
 
     setupWebSocketsServer(server);
+}
+
+/**
+ *
+ */
+function startRtcstatsServer() {
+    logger.info('[App] Initializing: %s; version: %s; env: %s ...', appName, appVersion, getEnvName());
+
+    setupWorkDirectory();
+    setupDumpStorage();
+    setupFeaturesPublisher();
+    setupAmplitudeConnector();
+    setupMetricsServer();
+    setupWebServer();
 
     logger.info('[App] Initialization complete.');
 }
@@ -419,7 +461,7 @@ process.on('unhandledRejection', reason => {
     logger.error('[App] Unhandled rejection: %s', reason);
 });
 
-run();
+startRtcstatsServer();
 
 module.exports = {
     stop,
