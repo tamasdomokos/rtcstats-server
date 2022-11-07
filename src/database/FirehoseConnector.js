@@ -20,7 +20,8 @@ class FirehoseConnector {
         pcStatsStream,
         trackStatsStream,
         e2ePingStream,
-        faceLandmarksStream
+        faceLandmarksStream,
+        meetingEventStream
     }) {
 
         assert(region);
@@ -29,12 +30,14 @@ class FirehoseConnector {
         assert(trackStatsStream);
         assert(e2ePingStream);
         assert(faceLandmarksStream);
+        assert(meetingEventStream);
 
         this._meetingStatsStream = meetingStatsStream;
         this._pcStatsStream = pcStatsStream;
         this._trackStatsStream = trackStatsStream;
         this._e2ePingStream = e2ePingStream;
         this._faceLandmarksStream = faceLandmarksStream;
+        this._meetingEventStream = meetingEventStream;
         this._awsRegion = region;
     }
 
@@ -148,6 +151,14 @@ class FirehoseConnector {
      */
     putFaceLandmarkRecords(faceLandmarkRecords) {
         this._putRecords(faceLandmarkRecords, this._faceLandmarksStream);
+    }
+
+    /**
+     *
+     * @param {*} meetingEventRecords
+     */
+    putMeetingEventRecords(meetingEventRecords) {
+        this._putRecords(meetingEventRecords, this._meetingEventStream);
     }
 }
 
