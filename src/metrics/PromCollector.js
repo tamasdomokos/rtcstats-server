@@ -169,6 +169,22 @@ const PromCollector = {
         help: 'number of open websocket connections that failed with an error'
     }),
 
+    missingSequenceNumberCount: new prom.Counter({
+        name: 'rtcstats_missing_sequence_number_count',
+        help: 'number of total number of missing sequence numbers'
+    }),
+
+
+    dataIsAlreadyProcessedCount: new prom.Counter({
+        name: 'rtcstats_data_already_processed_count',
+        help: 'date already processed but the client is reconnected with the same sessionid'
+    }),
+
+    clientReconnectedCount: new prom.Counter({
+        name: 'rtcstats_client_reconnected_count',
+        help: 'Every time a client has been reconnected'
+    }),
+
     metrics: () => prom.register.metrics(),
 
     collectDefaultMetrics: () => prom.collectDefaultMetrics(),
