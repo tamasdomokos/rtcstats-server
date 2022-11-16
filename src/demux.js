@@ -151,12 +151,11 @@ class DemuxSink extends Writable {
     async _sinkCreate(id) {
         PromCollector.sessionCount.inc();
 
-        let resolvedId = id;
-        let i = 0;
+        const resolvedId = id;
         let fd;
 
         const idealPath = path.resolve(cwd, this.dumpFolder, id);
-        let filePath = idealPath;
+        const filePath = idealPath;
 
         // If a client reconnects the same client id will be provided thus cases can occur where the previous dump
         // with the same id is still present on the disk, in order to avoid conflicts and states where multiple
@@ -168,15 +167,7 @@ class DemuxSink extends Writable {
         // if the entry already exists because some other instance uploaded first, the same incremental approach needs
         // to be taken.
         while (!fd) {
-            try {
-                fd = await fsOpen(filePath, 'wx');
-            } catch (err) {
-                if (err.code !== 'EEXIST') {
-                    throw err;
-                }
-                resolvedId = `${id}_${++i}`;
-                filePath = path.resolve(cwd, this.dumpFolder, resolvedId);
-            }
+            fd = await fsOpen(filePath, 'w');
         }
 
         this.log.info('[Demux] open-sink id: %s; path %s; connection: %o', id, filePath, this.connectionInfo);

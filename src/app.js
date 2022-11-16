@@ -6,6 +6,7 @@ const http = require('http');
 const https = require('https');
 const path = require('path');
 const { pipeline } = require('stream');
+const url = require('url');
 const WebSocket = require('ws');
 
 const { name: appName, version: appVersion } = require('../package');
@@ -17,6 +18,7 @@ const DemuxSink = require('./demux');
 const logger = require('./logging');
 const PromCollector = require('./metrics/PromCollector');
 const { saveEntryAssureUnique } = require('./store/dynamo');
+const fileStore = require('./store/file');
 const initS3Store = require('./store/s3.js');
 const { getStatsFormat } = require('./utils/stats-detection');
 const { asyncDeleteFile,
@@ -36,6 +38,7 @@ let featPublisher;
 let tempPath;
 let webhookSender;
 let secretManager;
+const sessionIdTimeouts = {};
 
 /**
  * Store the dump to the configured store. The dump file might be stored under a different
@@ -208,18 +211,62 @@ function setupWorkDirectory() {
         tempPath = config.server.tempPath;
         assert(tempPath);
 
+        if (!fs.existsSync(tempPath)) {
+            logger.debug(`[App] Creating working dir ${tempPath}`);
+            fs.mkdirSync(tempPath);
+        }
+    } catch (e) {
+        logger.error(`[App] Error while accessing working dir ${tempPath} - ${e}`);
+
+        // The app is probably in an inconsistent state at this point, throw and stop process.
+        throw e;
+    }
+}
+
+/**
+ * Remove old files from the temp folder.
+ */
+function processOldFiles() {
+    logger.info('[App] Waiting for connections to reconnect.');
+    try {
+        // Temporary path for stats dumps must be configured.
+        tempPath = config.server.tempPath;
+        assert(tempPath);
+
         if (fs.existsSync(tempPath)) {
             fs.readdirSync(tempPath).forEach(fname => {
                 try {
-                    logger.debug(`[App] Removing file ${`${tempPath}/${fname}`}`);
-                    fs.unlinkSync(`${tempPath}/${fname}`);
+                    const filePath = `${tempPath}/${fname}`;
+
+                    logger.debug(`[App] Trying to process file ${filePath}`);
+                    fs.stat(filePath, (err, stats) => {
+                        if (err) {
+                            throw err;
+                        }
+
+                        if (Math.abs(Date.now() - stats.mtime.getTime()) > config.features.reconnectTimout) {
+                            logger.debug(`[App] Start processing the file ${`${filePath}`}`);
+                            const response = fileStore?.getObjectsByKeys(
+                                filePath, [ 'connectionInfo', 'identity' ]);
+
+                            response.then(
+                                obj => {
+                                    logger.info(`[App] Meta and connectionInfo response: ${response}`);
+                                    const meta = obj?.connectionInfo;
+                                    const connectionInfo = obj?.identity;
+
+                                    setTimeout(processData,
+                                        config.features.reconnectTimout, fname, meta, connectionInfo);
+                                })
+                                .catch(() => {
+                                    logger.info('[App] New connection. File doesn\'t exist.');
+                                });
+                        }
+                    });
                 } catch (e) {
                     logger.error(`[App] Error while unlinking file ${fname} - ${e}`);
                 }
             });
-        } else {
-            logger.debug(`[App] Creating working dir ${tempPath}`);
-            fs.mkdirSync(tempPath);
         }
     } catch (e) {
         logger.error(`[App] Error while accessing working dir ${tempPath} - ${e}`);
@@ -271,10 +318,16 @@ function setupMetricsServer() {
  */
 function wsConnectionHandler(client, upgradeReq) {
     PromCollector.connected.inc();
+    logger.info('[App] Websocket connection handler');
 
     // the url the client is coming from
     const referer = upgradeReq.headers.origin + upgradeReq.url;
     const ua = upgradeReq.headers['user-agent'];
+    const queryObject = url.parse(referer, true).query;
+    const statsSessionId = queryObject?.statsSessionId;
+
+    clearConnectionTimeout(statsSessionId);
+    sendLastSequenceNumber(client, statsSessionId);
 
     // During feature extraction we need information about the browser in order to decide which algorithms use.
     const connectionInfo = {
@@ -296,44 +349,11 @@ function wsConnectionHandler(client, upgradeReq) {
     const demuxSink = new DemuxSink(demuxSinkOptions);
 
     demuxSink.on('close-sink', ({ id, meta }) => {
-        logger.info('[App] Queue for processing id %s', id);
+        logger.info('[App] Websocket disconnected waiting for processing the data %s', id);
 
-        const { confID = '' } = meta;
-        const tenantInfo = extractTenantDataFromUrl(confID);
+        const timemoutId = setTimeout(processData, config.features.reconnectTimout, id, meta, connectionInfo);
 
-        // Metadata associated with a dump can get large so just select the necessary fields.
-        const dumpData = {
-            app: meta.applicationName || 'Undefined',
-            clientId: id,
-            conferenceId: meta.confName,
-            conferenceUrl: meta.confID,
-            dumpPath: meta.dumpPath,
-            endDate: Date.now(),
-            endpointId: meta.endpointId,
-            startDate: meta.startDate,
-            sessionId: meta.meetingUniqueId,
-            userId: meta.displayName,
-            ampSessionId: meta.sessionId,
-            ampUserId: meta.userId,
-            ampDeviceId: meta.deviceId,
-            statsFormat: connectionInfo.statsFormat,
-            isBreakoutRoom: meta.isBreakoutRoom,
-            breakoutRoomId: meta.roomId,
-            parentStatsSessionId: meta.parentStatsSessionId,
-            ...tenantInfo
-        };
-
-        // Don't process dumps generated by JVB & Jigasi, there should be a more formal process to
-        if (config.features.disableFeatExtraction
-            || connectionInfo.clientProtocol?.includes('JVB') || connectionInfo.clientProtocol?.includes('JIGASI')) {
-            persistDumpData(dumpData);
-        } else {
-            // Add the clientId in the worker pool so it can process the associated dump file.
-            workerPool.addTask({
-                type: RequestType.PROCESS,
-                body: dumpData
-            });
-        }
+        sessionIdTimeouts[id] = timemoutId;
     });
 
     const connectionPipeline = pipeline(
@@ -377,6 +397,65 @@ function wsConnectionHandler(client, upgradeReq) {
 }
 
 /**
+ * Clear the connection timeout if the user is reconnected/
+ *
+ * @param {*} id
+ */
+function clearConnectionTimeout(id) {
+    const timeoutId = sessionIdTimeouts[id];
+
+    if (timeoutId) {
+        logger.info('[App] Clear timeout for connectionId: %s', id);
+        clearTimeout(timeoutId);
+    }
+}
+
+/**
+ *
+ * @param {*} meta
+ * @param {*} connectionInfo
+ */
+function processData(id, meta, connectionInfo) {
+    logger.info('[App] Queue for processing id %s', id);
+
+    const { confID = '' } = meta;
+    const tenantInfo = extractTenantDataFromUrl(confID);
+
+    // Metadata associated with a dump can get large so just select the necessary fields.
+    const dumpData = {
+        app: meta.applicationName || 'Undefined',
+        clientId: id,
+        conferenceId: meta.confName,
+        conferenceUrl: meta.confID,
+        dumpPath: meta.dumpPath,
+        endDate: Date.now(),
+        endpointId: meta.endpointId,
+        startDate: meta.startDate,
+        sessionId: meta.meetingUniqueId,
+        userId: meta.displayName,
+        ampSessionId: meta.sessionId,
+        ampUserId: meta.userId,
+        ampDeviceId: meta.deviceId,
+        statsFormat: connectionInfo.statsFormat,
+        isBreakoutRoom: meta.isBreakoutRoom,
+        breakoutRoomId: meta.roomId,
+        parentStatsSessionId: meta.parentStatsSessionId,
+        ...tenantInfo
+    };
+
+    // Don't process dumps generated by JVB, there should be a more formal process to
+    if (config.features.disableFeatExtraction || connectionInfo.clientProtocol?.includes('JVB')) {
+        persistDumpData(dumpData);
+    } else {
+        // Add the clientId in the worker pool so it can process the associated dump file.
+        workerPool.addTask({
+            type: RequestType.PROCESS,
+            body: dumpData
+        });
+    }
+}
+
+/**
  *
  * @param {*} wsServer
  */
@@ -384,6 +463,33 @@ function setupWebSocketsServer(wsServer) {
     const wss = new WebSocket.Server({ server: wsServer });
 
     wss.on('connection', wsConnectionHandler);
+}
+
+/**
+ * @param {*} client
+ * @param {*} id
+ */
+function sendLastSequenceNumber(client, id) {
+    const dumpPath = `${tempPath}/${id}`;
+    let sequenceNumber = 0;
+
+    fileStore?.getLastLine(dumpPath, 1)
+        .then(
+            lastLine => {
+                const jsonData = JSON.parse(lastLine);
+
+                if (Array.isArray(jsonData) && jsonData[4] !== undefined) {
+                    sequenceNumber = jsonData[4];
+                }
+            })
+        .catch(() => {
+            logger.info('[App] New connection. File doesn\'t exist.');
+        })
+        .finally(() => {
+            client.send(`{"sn":${sequenceNumber}}`);
+
+            setTimeout(sendLastSequenceNumber, config.features.requenceNumberSendingInterval, client, id);
+        });
 }
 
 /**
@@ -497,6 +603,7 @@ async function startRtcstatsServer() {
     setupSecretManager();
     await setupWebhookSender();
     setupWorkDirectory();
+    processOldFiles();
     setupDumpStorage();
     setupFeaturesPublisher();
     setupAmplitudeConnector();
