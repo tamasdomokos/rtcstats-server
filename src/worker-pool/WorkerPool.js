@@ -181,6 +181,9 @@ class WorkerPool extends EventEmitter {
      * @param {*} task
      */
     addTask(task) {
+        logger.info(
+            `[WorkerPool] Task added <${task}>`
+        );
         const idleWorkers = this._getIdleWorkers();
 
         if (idleWorkers.length > 0) {

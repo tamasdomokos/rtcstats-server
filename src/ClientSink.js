@@ -1,6 +1,6 @@
 
 const logger = require('./logging');
-const getLastLine = require('./store/file');
+const storeFile = require('./store/file');
 
 const messageTypes = {
     SequenceNumber: 'sn'
@@ -35,8 +35,12 @@ class ClientSink {
             sequenceNumber = this._getLastSequenceNumberFromDump();
         }
 
-        this.client.send(this.createMessage(messageTypes.SequenceNumber, sequenceNumber));
-        setTimeout(this.sendLastSequenceNumber, this.sequenceNumberSendingInterval, this.client, this.id);
+        this.client.send(
+            JSON.stringify(
+                this._createMessage(messageTypes.SequenceNumber, sequenceNumber)
+            )
+        );
+        setTimeout(() => this.sendLastSequenceNumber(this.client, this.id), this.sequenceNumberSendingInterval);
     }
 
     /**
@@ -45,7 +49,7 @@ class ClientSink {
     _getLastSequenceNumberFromDump() {
         const dumpPath = `${this.tempPath}/${this.id}`;
 
-        getLastLine(dumpPath, 1)
+        storeFile.getLastLine(dumpPath, 1)
             .then(
                 lastLine => {
                     const jsonData = JSON.parse(lastLine);
@@ -59,17 +63,16 @@ class ClientSink {
             });
     }
 
-
     /**
      *
      * @param type {string}
-     * @param data {object}
-     * @returns {{data, type}}
+     * @param body {string}
+     * @returns {{body, type}}
      */
-    createMessage(type, data) {
+    _createMessage(type, body) {
         return {
             'type': type,
-            'data': data
+            'body': body
         };
     }
 }

@@ -1,3 +1,4 @@
+const { logger } = require('dynamoose');
 const fs = require('fs');
 const sizeof = require('object-sizeof');
 const path = require('path');
@@ -133,8 +134,10 @@ class DemuxSink extends Writable {
         // listening client has s chance to handle the sink.
         if (sinkData) {
             // we need to emit this on file stream finish
-            this.emit('close-sink', { id: sinkData.id,
-                meta: { ...sinkData.meta } });
+            this.emit('close-sink', {
+                id: sinkData.id,
+                meta: { ...sinkData.meta }
+            });
 
         } else {
             this.log.error('[Demux] sink on close meta should be available id:', id);
@@ -221,8 +224,10 @@ class DemuxSink extends Writable {
         }
 
         // A first level update of the properties will suffice.
-        sinkData.meta = { ...sinkData.meta,
-            ...metadata };
+        sinkData.meta = {
+            ...sinkData.meta,
+            ...metadata
+        };
 
         // We expect metadata to be objects thus we need to stringify them before writing to the sink.
         this._sinkWrite(sinkData.sink, JSON.stringify(data));
@@ -268,11 +273,19 @@ class DemuxSink extends Writable {
 
         PromCollector.requestSizeBytes.observe(sizeof(request));
 
-        const { statsSessionId, type, data, timestamp, sn } = request;
+        const { statsSessionId, type, data } = request;
 
         // save the last sequence number to notify the frontend
-        this.lastSequenceNumber = sn;
-        this.lastTimestamp = timestamp;
+        if (Array.isArray(data)) {
+            this.lastSequenceNumber = data[3];
+            this.lastTimestamp = data[4];
+        } else {
+            const jsonData = JSON.parse(data);
+
+            this.lastSequenceNumber = jsonData[3];
+            this.lastTimestamp = jsonData[4];
+        }
+
 
         // If this is the first request coming from this client id ,create a new sink (file write stream in this case)
         // and it's associated metadata.
@@ -292,19 +305,21 @@ class DemuxSink extends Writable {
         // Subsequent operations will be taken by services in the upper level, like upload to store and persist
         // metadata do a db.
         case 'close':
+            this.log.info('[Demux] Tomi sink closed');
+
             return this._sinkClose(sinkData);
 
-        // Identity requests will update the local metadata and also write it to the sink.
-        // Metadata associated with a sink will be propagated through an event to listeners when the sink closes,
-        // either on an explicit close or when the timeout mechanism triggers.
+            // Identity requests will update the local metadata and also write it to the sink.
+            // Metadata associated with a sink will be propagated through an event to listeners when the sink closes,
+            // either on an explicit close or when the timeout mechanism triggers.
         case 'identity':
             return this._sinkUpdateMetadata(sinkData, data);
 
-        // Generic request with stats data, simply write it to the sink.
+            // Generic request with stats data, simply write it to the sink.
         case 'stats-entry':
             return this._sinkWrite(sinkData.sink, data);
 
-        // Request sent by clients in order to keep the timeout from triggering.
+            // Request sent by clients in order to keep the timeout from triggering.
         case 'keepalive':
             this.log.debug('[Demux] Keepalive received for :', statsSessionId);
 

@@ -15,7 +15,7 @@ server:
 
 features:
     disableFeatExtraction: false
-    reconnectTimout: 60000
+    reconnectTimeout: 60000
     sequenceNumberSendingInterval: 60000
 
 amplitude:

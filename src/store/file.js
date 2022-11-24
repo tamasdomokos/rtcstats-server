@@ -2,8 +2,6 @@ const fs = require('fs');
 const readline = require('readline');
 const Stream = require('stream');
 
-const logger = require('../logging');
-
 exports.getLastLine = (fileName, minLength) => {
     const inStream = fs.createReadStream(fileName);
     const outStream = new Stream();

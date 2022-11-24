@@ -1,108 +1,60 @@
-const JSONStream = require('JSONStream');
+
 const assert = require('assert').strict;
 const config = require('config');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const path = require('path');
-const { pipeline } = require('stream');
-const url = require('url');
-const WebSocket = require('ws');
 
 const { name: appName, version: appVersion } = require('../package');
 
-const ClientSink = require('./ClientSink');
 const AmplitudeConnector = require('./database/AmplitudeConnector');
 const FeaturesPublisher = require('./database/FeaturesPublisher');
 const FirehoseConnector = require('./database/FirehoseConnector');
-const DemuxSink = require('./demux');
+const DumpPersister = require('./dump-persister');
 const logger = require('./logging');
 const PromCollector = require('./metrics/PromCollector');
-const { saveEntryAssureUnique } = require('./store/dynamo');
-const fileStore = require('./store/file');
-const initS3Store = require('./store/s3.js');
-const { getStatsFormat } = require('./utils/stats-detection');
-const { asyncDeleteFile,
-    getEnvName,
+const OrphanFileHelper = require('./orphan-file-helper');
+const { getEnvName,
     getIdealWorkerCount,
-    RequestType,
     ResponseType,
-    extractTenantDataFromUrl,
     obfuscatePII } = require('./utils/utils');
 const AwsSecretManager = require('./webhooks/AwsSecretManager');
 const WebhookSender = require('./webhooks/WebhookSender');
 const WorkerPool = require('./worker-pool/WorkerPool');
+const WsHandler = require('./ws-handler');
 
 let amplitude;
-let store;
+
 let featPublisher;
 let webhookSender;
 let secretManager;
 let tempDumpPath;
-const sessionIdTimeouts = {};
-
-
-/**
- * Store the dump to the configured store. The dump file might be stored under a different
- * name, this is to account for the reconnect mechanism currently in place.
- *
- * @param {string} clientId - name that the dump file will actually have on disk.
- * @param {string} uniqueClientId - name that the dump will have on the store.
- */
-async function storeDump(sinkMeta, uniqueClientId) {
-
-    const {
-        clientId,
-        isJaaSTenant
-    } = sinkMeta;
-
-    const tempPath = getTempPath();
-    const dumpPath = `${tempPath}/${clientId}`;
-    const { webhooks: { sendRtcstatsUploaded } = { sendRtcstatsUploaded: false } } = config;
-
-    try {
-
-        logger.info(`[S3] Storing dump ${uniqueClientId} with path ${dumpPath}`);
-
-        await store?.put(uniqueClientId, dumpPath);
-
-        if (isJaaSTenant && sendRtcstatsUploaded && webhookSender) {
-            const signedLink = await store?.getSignedUrl(uniqueClientId);
-
-            webhookSender.sendRtcstatsUploadedHook(sinkMeta, signedLink);
-        }
-    } catch (err) {
-        PromCollector.storageErrorCount.inc();
-
-        logger.error('Error storing: %s uniqueId: %s - %s', dumpPath, uniqueClientId, err);
-    } finally {
-        await asyncDeleteFile(dumpPath);
-    }
-}
-
-/**
- * Persist the dump file to the configured store and save the  associated metadata. At the time of writing the
- * only supported store for metadata is dynamo.
- *
- * @param {Object} sinkMeta - metadata associated with the dump file.
- */
-async function persistDumpData(sinkMeta) {
-
-    // Metadata associated with a dump can get large so just select the necessary fields.
-    const { clientId } = sinkMeta;
-    let uniqueClientId = clientId;
-
-    // Because of the current reconnect mechanism some files might have the same clientId, in which case the
-    // underlying call will add an associated uniqueId to the clientId and return it.
-    uniqueClientId = await saveEntryAssureUnique(sinkMeta);
-
-    // Store the dump file associated with the clientId using uniqueClientId as the key value. In the majority of
-    // cases the input parameter will have the same values.
-    storeDump(sinkMeta, uniqueClientId ?? clientId);
-}
+const { s3, features: { disableFeatExtraction, reconnectTimeout, sequenceNumberSendingInterval } } = config;
 
 const workerScriptPath = path.join(__dirname, './worker-pool/ExtractWorker.js');
 const workerPool = new WorkerPool(workerScriptPath, getIdealWorkerCount());
+
+logger.info('[App] worker pool:', workerPool);
+const dumpPersister = new DumpPersister({
+    tempPath: getTempPath(),
+    s3,
+    disableFeatExtraction,
+    workerPool,
+    webhookSender,
+    config
+});
+const wsHandler = new WsHandler({
+    tempPath: getTempPath(),
+    reconnectTimeout,
+    sequenceNumberSendingInterval,
+    dumpPersister
+});
+const orphanFileHelper = new OrphanFileHelper({
+    tempPath: getTempPath(),
+    reconnectTimeout,
+    dumpPersister
+});
 
 workerPool.on(ResponseType.DONE, body => {
     const { dumpInfo = {}, features = {} } = body;
@@ -138,7 +90,7 @@ workerPool.on(ResponseType.DONE, body => {
         logger.error('[App] Handling DONE event error %o and body %o', e, obfuscatedDumpInfo);
     }
 
-    persistDumpData(dumpInfo);
+    dumpPersister.persistDumpData(dumpInfo);
 
 });
 
@@ -152,22 +104,11 @@ workerPool.on(ResponseType.ERROR, body => {
 
     // If feature extraction failed at least attempt to store the dump in s3.
     if (dumpInfo.clientId) {
-        persistDumpData(dumpInfo);
+        dumpPersister.persistDumpData(dumpInfo);
     } else {
         logger.error('[App] Handling ERROR without a clientId field!');
     }
 });
-
-/**
- * Initialize the service which will persist the dump files.
- */
-function setupDumpStorage() {
-    if (config.s3?.region) {
-        store = initS3Store(config.s3);
-    } else {
-        logger.warn('[App] S3 is not configured!');
-    }
-}
 
 /**
  * Configure Amplitude backend
@@ -240,56 +181,6 @@ function setupWorkDirectory() {
     }
 }
 
-/**
- * Remove old files from the temp folder.
- */
-function processOldFiles() {
-    const tempPath = getTempPath();
-
-    logger.info('[App] Waiting for connections to reconnect.');
-    try {
-        if (fs.existsSync(tempPath)) {
-            fs.readdirSync(tempPath).forEach(fname => {
-                try {
-                    const filePath = `${tempPath}/${fname}`;
-
-                    logger.debug(`[App] Trying to process file ${filePath}`);
-                    fs.stat(filePath, (err, stats) => {
-                        if (err) {
-                            throw err;
-                        }
-
-                        if (Math.abs(Date.now() - stats.mtime.getTime()) > config.features.reconnectTimout) {
-                            logger.debug(`[App] Start processing the file ${`${filePath}`}`);
-                            const response = fileStore?.getObjectsByKeys(
-                                filePath, [ 'connectionInfo', 'identity' ]);
-
-                            response.then(
-                                obj => {
-                                    logger.info(`[App] Meta and connectionInfo response: ${response}`);
-                                    const meta = obj?.connectionInfo;
-                                    const connectionInfo = obj?.identity;
-
-                                    setTimeout(processData,
-                                        config.features.reconnectTimout, fname, meta, connectionInfo);
-                                })
-                                .catch(() => {
-                                    logger.info('[App] New connection. File doesn\'t exist.');
-                                });
-                        }
-                    });
-                } catch (e) {
-                    logger.error(`[App] Error while unlinking file ${fname} - ${e}`);
-                }
-            });
-        }
-    } catch (e) {
-        logger.error(`[App] Error while accessing working dir ${tempPath} - ${e}`);
-
-        // The app is probably in an inconsistent state at this point, throw and stop process.
-        throw e;
-    }
-}
 
 /**
  * Initialize http server exposing prometheus statistics.
@@ -320,174 +211,6 @@ function setupMetricsServer() {
         .listen(port);
 
     return metricsServer;
-}
-
-/**
- * Main handler for web socket connections.
- * Messages are sent through a node stream which saves them to a dump file.
- * After the websocket is closed the session is considered as terminated and the associated dump
- * is queued up for feature extraction through the {@code WorkerPool} implementation.
- *
- * @param {*} client
- * @param {*} upgradeReq
- */
-function wsConnectionHandler(client, upgradeReq) {
-    PromCollector.connected.inc();
-    logger.info('[App] Websocket connection handler');
-
-    // the url the client is coming from
-    const referer = upgradeReq.headers.origin + upgradeReq.url;
-    const ua = upgradeReq.headers['user-agent'];
-    const queryObject = url.parse(referer, true).query;
-    const statsSessionId = queryObject?.statsSessionId;
-    const { features: { reconnectTimout, sequenceNumberSendingInterval } } = config;
-
-    // During feature extraction we need information about the browser in order to decide which algorithms use.
-    const connectionInfo = {
-        path: upgradeReq.url,
-        origin: upgradeReq.headers.origin,
-        url: referer,
-        userAgent: ua,
-        clientProtocol: client.protocol
-    };
-
-    connectionInfo.statsFormat = getStatsFormat(connectionInfo);
-
-    const demuxSinkOptions = {
-        connectionInfo,
-        dumpFolder: './temp',
-        log: logger
-    };
-
-    const demuxSink = new DemuxSink(demuxSinkOptions);
-
-    const clientSinkOptions = {
-        id: statsSessionId,
-        tempPath: getTempPath(),
-        sequenceNumberSendingInterval,
-        demuxSink,
-        client
-    };
-    const clientSink = new ClientSink(clientSinkOptions);
-
-    clearConnectionTimeout(statsSessionId);
-    clientSink.sendLastSequenceNumber(client, statsSessionId);
-
-    demuxSink.on('close-sink', ({ id, meta }) => {
-        logger.info('[App] Websocket disconnected waiting for processing the data %s', id);
-
-        const timemoutId = setTimeout(processData, reconnectTimout, id, meta, connectionInfo);
-
-        sessionIdTimeouts[id] = timemoutId;
-    });
-
-    const connectionPipeline = pipeline(
-        WebSocket.createWebSocketStream(client),
-        JSONStream.parse(),
-        demuxSink,
-        err => {
-            if (err) {
-                // A pipeline can multiplex multiple sessions however if one fails
-                // the whole pipeline does as well,
-                PromCollector.sessionErrorCount.inc();
-
-                logger.error('[App] Connection pipeline: %o;  error: %o', connectionInfo, err);
-            }
-        });
-
-    connectionPipeline.on('finish', () => {
-        logger.info('[App] Connection pipeline successfully finished %o', connectionInfo);
-
-        // We need to explicity close the ws, you might notice that we don't do the same in case of an error
-        // that's because in that case the error will propagate up the pipeline chain and the ws stream will also
-        // close the ws.
-        client.close();
-    });
-
-    logger.info(
-        '[App] New app connected: ua: %s, protocol: %s, referer: %s',
-        ua,
-        client.protocol,
-        referer
-    );
-
-    client.on('error', e => {
-        logger.error('[App] Websocket error: %s', e);
-        PromCollector.connectionError.inc();
-    });
-
-    client.on('close', () => {
-        PromCollector.connected.dec();
-    });
-}
-
-/**
- * Clear the connection timeout if the user is reconnected/
- *
- * @param {*} id
- */
-function clearConnectionTimeout(id) {
-    const timeoutId = sessionIdTimeouts[id];
-
-    if (timeoutId) {
-        logger.info('[App] Clear timeout for connectionId: %s', id);
-        clearTimeout(timeoutId);
-    }
-}
-
-/**
- *
- * @param {*} meta
- * @param {*} connectionInfo
- */
-function processData(id, meta, connectionInfo) {
-    logger.info('[App] Queue for processing id %s', id);
-
-    const { confID = '' } = meta;
-    const tenantInfo = extractTenantDataFromUrl(confID);
-
-    // Metadata associated with a dump can get large so just select the necessary fields.
-    const dumpData = {
-        app: meta.applicationName || 'Undefined',
-        clientId: id,
-        conferenceId: meta.confName,
-        conferenceUrl: meta.confID,
-        dumpPath: meta.dumpPath,
-        endDate: Date.now(),
-        endpointId: meta.endpointId,
-        startDate: meta.startDate,
-        sessionId: meta.meetingUniqueId,
-        userId: meta.displayName,
-        ampSessionId: meta.sessionId,
-        ampUserId: meta.userId,
-        ampDeviceId: meta.deviceId,
-        statsFormat: connectionInfo.statsFormat,
-        isBreakoutRoom: meta.isBreakoutRoom,
-        breakoutRoomId: meta.roomId,
-        parentStatsSessionId: meta.parentStatsSessionId,
-        ...tenantInfo
-    };
-
-    // Don't process dumps generated by JVB, there should be a more formal process to
-    if (config.features.disableFeatExtraction || connectionInfo.clientProtocol?.includes('JVB')) {
-        persistDumpData(dumpData);
-    } else {
-        // Add the clientId in the worker pool so it can process the associated dump file.
-        workerPool.addTask({
-            type: RequestType.PROCESS,
-            body: dumpData
-        });
-    }
-}
-
-/**
- *
- * @param {*} wsServer
- */
-function setupWebSocketsServer(wsServer) {
-    const wss = new WebSocket.Server({ server: wsServer });
-
-    wss.on('connection', wsConnectionHandler);
 }
 
 /**
@@ -561,7 +284,7 @@ function setupWebServer() {
         server = setupHttpServer(port);
     }
 
-    setupWebSocketsServer(server);
+    wsHandler.setupWebSocketsServer(server);
 }
 
 /**
@@ -601,8 +324,7 @@ async function startRtcstatsServer() {
     setupSecretManager();
     await setupWebhookSender();
     setupWorkDirectory();
-    processOldFiles();
-    setupDumpStorage();
+    orphanFileHelper.processOldFiles();
     setupFeaturesPublisher();
     setupAmplitudeConnector();
     setupMetricsServer();
