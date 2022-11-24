@@ -11,6 +11,7 @@ const WebSocket = require('ws');
 
 const { name: appName, version: appVersion } = require('../package');
 
+const ClientSink = require('./ClientSink');
 const AmplitudeConnector = require('./database/AmplitudeConnector');
 const FeaturesPublisher = require('./database/FeaturesPublisher');
 const FirehoseConnector = require('./database/FirehoseConnector');
@@ -35,10 +36,11 @@ const WorkerPool = require('./worker-pool/WorkerPool');
 let amplitude;
 let store;
 let featPublisher;
-let tempPath;
 let webhookSender;
 let secretManager;
+let tempDumpPath;
 const sessionIdTimeouts = {};
+
 
 /**
  * Store the dump to the configured store. The dump file might be stored under a different
@@ -54,6 +56,7 @@ async function storeDump(sinkMeta, uniqueClientId) {
         isJaaSTenant
     } = sinkMeta;
 
+    const tempPath = getTempPath();
     const dumpPath = `${tempPath}/${clientId}`;
     const { webhooks: { sendRtcstatsUploaded } = { sendRtcstatsUploaded: false } } = config;
 
@@ -203,14 +206,28 @@ function setupFeaturesPublisher() {
 }
 
 /**
+ *
+ */
+function getTempPath() {
+    // Temporary path for stats dumps must be configured.
+    const { server: { tempPath } } = config;
+
+    if (tempDumpPath === undefined) {
+        tempDumpPath = tempPath;
+    }
+
+    assert(tempDumpPath);
+
+    return tempDumpPath;
+}
+
+/**
  * Initialize the directory where temporary dump files will be stored.
  */
 function setupWorkDirectory() {
-    try {
-        // Temporary path for stats dumps must be configured.
-        tempPath = config.server.tempPath;
-        assert(tempPath);
+    const tempPath = getTempPath();
 
+    try {
         if (!fs.existsSync(tempPath)) {
             logger.debug(`[App] Creating working dir ${tempPath}`);
             fs.mkdirSync(tempPath);
@@ -227,12 +244,10 @@ function setupWorkDirectory() {
  * Remove old files from the temp folder.
  */
 function processOldFiles() {
+    const tempPath = getTempPath();
+
     logger.info('[App] Waiting for connections to reconnect.');
     try {
-        // Temporary path for stats dumps must be configured.
-        tempPath = config.server.tempPath;
-        assert(tempPath);
-
         if (fs.existsSync(tempPath)) {
             fs.readdirSync(tempPath).forEach(fname => {
                 try {
@@ -325,9 +340,7 @@ function wsConnectionHandler(client, upgradeReq) {
     const ua = upgradeReq.headers['user-agent'];
     const queryObject = url.parse(referer, true).query;
     const statsSessionId = queryObject?.statsSessionId;
-
-    clearConnectionTimeout(statsSessionId);
-    sendLastSequenceNumber(client, statsSessionId);
+    const { features: { reconnectTimout, sequenceNumberSendingInterval } } = config;
 
     // During feature extraction we need information about the browser in order to decide which algorithms use.
     const connectionInfo = {
@@ -348,10 +361,22 @@ function wsConnectionHandler(client, upgradeReq) {
 
     const demuxSink = new DemuxSink(demuxSinkOptions);
 
+    const clientSinkOptions = {
+        id: statsSessionId,
+        tempPath: getTempPath(),
+        sequenceNumberSendingInterval,
+        demuxSink,
+        client
+    };
+    const clientSink = new ClientSink(clientSinkOptions);
+
+    clearConnectionTimeout(statsSessionId);
+    clientSink.sendLastSequenceNumber(client, statsSessionId);
+
     demuxSink.on('close-sink', ({ id, meta }) => {
         logger.info('[App] Websocket disconnected waiting for processing the data %s', id);
 
-        const timemoutId = setTimeout(processData, config.features.reconnectTimout, id, meta, connectionInfo);
+        const timemoutId = setTimeout(processData, reconnectTimout, id, meta, connectionInfo);
 
         sessionIdTimeouts[id] = timemoutId;
     });
@@ -463,33 +488,6 @@ function setupWebSocketsServer(wsServer) {
     const wss = new WebSocket.Server({ server: wsServer });
 
     wss.on('connection', wsConnectionHandler);
-}
-
-/**
- * @param {*} client
- * @param {*} id
- */
-function sendLastSequenceNumber(client, id) {
-    const dumpPath = `${tempPath}/${id}`;
-    let sequenceNumber = 0;
-
-    fileStore?.getLastLine(dumpPath, 1)
-        .then(
-            lastLine => {
-                const jsonData = JSON.parse(lastLine);
-
-                if (Array.isArray(jsonData) && jsonData[4] !== undefined) {
-                    sequenceNumber = jsonData[4];
-                }
-            })
-        .catch(() => {
-            logger.info('[App] New connection. File doesn\'t exist.');
-        })
-        .finally(() => {
-            client.send(`{"sn":${sequenceNumber}}`);
-
-            setTimeout(sendLastSequenceNumber, config.features.requenceNumberSendingInterval, client, id);
-        });
 }
 
 /**

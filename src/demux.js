@@ -37,6 +37,8 @@ class DemuxSink extends Writable {
         this.timeoutId = -1;
         this.sinkMap = new Map();
         this.persistDump = persistDump;
+        this.lastSequenceNumber = -1;
+        this.lastTimestamp = -1;
 
         // TODO move this as a separate readable/writable stream so we don't pollute this class.
         if (this.persistDump) {
@@ -266,7 +268,11 @@ class DemuxSink extends Writable {
 
         PromCollector.requestSizeBytes.observe(sizeof(request));
 
-        const { statsSessionId, type, data } = request;
+        const { statsSessionId, type, data, timestamp, sn } = request;
+
+        // save the last sequence number to notify the frontend
+        this.lastSequenceNumber = sn;
+        this.lastTimestamp = timestamp;
 
         // If this is the first request coming from this client id ,create a new sink (file write stream in this case)
         // and it's associated metadata.
