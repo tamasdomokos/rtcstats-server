@@ -1,4 +1,3 @@
-const { logger } = require('dynamoose');
 const fs = require('fs');
 const sizeof = require('object-sizeof');
 const path = require('path');

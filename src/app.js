@@ -8,13 +8,13 @@ const path = require('path');
 
 const { name: appName, version: appVersion } = require('../package');
 
+const DumpPersister = require('./DumpPersister');
+const OrphanFileHelper = require('./OrphanFileHelper');
 const AmplitudeConnector = require('./database/AmplitudeConnector');
 const FeaturesPublisher = require('./database/FeaturesPublisher');
 const FirehoseConnector = require('./database/FirehoseConnector');
-const DumpPersister = require('./dump-persister');
 const logger = require('./logging');
 const PromCollector = require('./metrics/PromCollector');
-const OrphanFileHelper = require('./orphan-file-helper');
 const { getEnvName,
     getIdealWorkerCount,
     ResponseType,
