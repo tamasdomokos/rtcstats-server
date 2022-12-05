@@ -10,6 +10,7 @@ const { name: appName, version: appVersion } = require('../package');
 
 const DumpPersister = require('./DumpPersister');
 const OrphanFileHelper = require('./OrphanFileHelper');
+const WsHandler = require('./WsHandler');
 const AmplitudeConnector = require('./database/AmplitudeConnector');
 const FeaturesPublisher = require('./database/FeaturesPublisher');
 const FirehoseConnector = require('./database/FirehoseConnector');
@@ -22,7 +23,6 @@ const { getEnvName,
 const AwsSecretManager = require('./webhooks/AwsSecretManager');
 const WebhookSender = require('./webhooks/WebhookSender');
 const WorkerPool = require('./worker-pool/WorkerPool');
-const WsHandler = require('./ws-handler');
 
 let amplitude;
 

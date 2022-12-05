@@ -304,13 +304,13 @@ class DemuxSink extends Writable {
         // Subsequent operations will be taken by services in the upper level, like upload to store and persist
         // metadata do a db.
         case 'close':
-            this.log.info('[Demux] Tomi sink closed');
+            this.log.info('[Demux] sink closed');
 
             return this._sinkClose(sinkData);
 
-            // Identity requests will update the local metadata and also write it to the sink.
-            // Metadata associated with a sink will be propagated through an event to listeners when the sink closes,
-            // either on an explicit close or when the timeout mechanism triggers.
+        // Identity requests will update the local metadata and also write it to the sink.
+        // Metadata associated with a sink will be propagated through an event to listeners when the sink closes,
+        // either on an explicit close or when the timeout mechanism triggers.
         case 'identity':
             return this._sinkUpdateMetadata(sinkData, data);
 

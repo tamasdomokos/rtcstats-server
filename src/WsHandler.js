@@ -3,7 +3,7 @@ const { pipeline } = require('stream');
 const url = require('url');
 const WebSocket = require('ws');
 
-const ClientSink = require('./ClientSink');
+const ClientSink = require('./ClientMessageHandler');
 const DemuxSink = require('./demux');
 const logger = require('./logging');
 const PromCollector = require('./metrics/PromCollector');

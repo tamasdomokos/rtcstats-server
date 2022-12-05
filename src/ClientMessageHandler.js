@@ -14,8 +14,8 @@ class ClientSink {
      * @param tempPath {string}
      * @param sequenceNumberSendingInterval {number}
      */
-    constructor({ id, tempPath, sequenceNumberSendingInterval, demuxSink, client }) {
-        this.id = id;
+    constructor({ statssessionid, tempPath, sequenceNumberSendingInterval, demuxSink, client }) {
+        this.statssessionid = statssessionid;
         this.tempPath = tempPath;
         this.sequenceNumberSendingInterval = sequenceNumberSendingInterval;
         this.demuxSink = demuxSink;
@@ -26,7 +26,7 @@ class ClientSink {
      *  Sends the last sequence number from demuxSink or reads from the dump file
     */
     sendLastSequenceNumber() {
-
+        logger.info('Sending last sequence number from demuxSink');
         let sequenceNumber = 0;
 
         if (this.demuxSink.lastSequenceNumber > 0) {
@@ -40,14 +40,15 @@ class ClientSink {
                 this._createMessage(messageTypes.SequenceNumber, sequenceNumber)
             )
         );
-        setTimeout(() => this.sendLastSequenceNumber(this.client, this.id), this.sequenceNumberSendingInterval);
+        setTimeout(() => this.sendLastSequenceNumber(this.client, this.statssessionid),
+            this.sequenceNumberSendingInterval);
     }
 
     /**
      * Reads the last sequnce number from the dump file.
      */
     _getLastSequenceNumberFromDump() {
-        const dumpPath = `${this.tempPath}/${this.id}`;
+        const dumpPath = `${this.tempPath}/${this.statssessionid}`;
 
         storeFile.getLastLine(dumpPath, 1)
             .then(
@@ -57,6 +58,8 @@ class ClientSink {
                     if (Array.isArray(jsonData) && jsonData[4] !== undefined) {
                         return jsonData[4];
                     }
+
+                    return -1;
                 })
             .catch(() => {
                 logger.info('[App] New connection. File doesn\'t exist.');
