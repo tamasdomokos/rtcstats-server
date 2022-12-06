@@ -9,7 +9,7 @@ const messageTypes = {
 /**
  * This handles sending the messages to the frontend
  */
-class ClientSink {
+class ClientMessageHandler {
     /**
      * @param tempPath {string}
      * @param sequenceNumberSendingInterval {number}
@@ -80,4 +80,4 @@ class ClientSink {
     }
 }
 
-module.exports = ClientSink;
+module.exports = ClientMessageHandler;

@@ -3,7 +3,7 @@ const { pipeline } = require('stream');
 const url = require('url');
 const WebSocket = require('ws');
 
-const ClientSink = require('./ClientMessageHandler');
+const ClientMessageHandler = require('./ClientMessageHandler');
 const DemuxSink = require('./demux');
 const logger = require('./logging');
 const PromCollector = require('./metrics/PromCollector');
@@ -132,7 +132,7 @@ class WsHandler {
      *
      */
     _createClientSink(statsSessionId, demuxSink, client) {
-        const clientSinkOptions = {
+        const clientMessageHandlerOptions = {
             id: statsSessionId,
             tempPath: this.tempPath,
             sequenceNumberSendingInterval: this.sequenceNumberSendingInterval,
@@ -140,7 +140,7 @@ class WsHandler {
             client
         };
 
-        return new ClientSink(clientSinkOptions);
+        return new ClientMessageHandler(clientMessageHandlerOptions);
     }
 
     /**
