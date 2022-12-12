@@ -1,6 +1,7 @@
 /* feature extraction utils */
 const fs = require('fs');
 const os = require('os');
+const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const logger = require('../logging');
@@ -328,6 +329,61 @@ function getSQLTimestamp(value) {
 }
 
 /**
+ * Self explanatory
+ *
+ * @returns {number}
+ */
+function getSecondsSinceEpoch() {
+
+    return Math.floor(Date.now() / 1000);
+}
+
+/**
+ * Node.js signing libraries expect a properly formatted PKCS8 private key.
+ * Adds new line and PKCS8 container to a unformatted PEM PKCS8( base64 + PKCS8 header) encoded private key.
+ *
+ * @param {string} unformattedPKCS8 - Unformatted (no 64 char new line and envelop) base64 private key;
+ * @returns {string} - Properly formatted PKCS8 PEM key.
+ */
+function addPKCS8ContainerAndNewLine(unformattedPKCS8) {
+    const formattedPKCS8 = unformattedPKCS8.replace(/(.{64})/g, '$1\n');
+
+    return `-----BEGIN PRIVATE KEY-----\n${formattedPKCS8}\n-----END PRIVATE KEY-----`;
+}
+
+const VPAAS_TENANT_PREFIX = 'vpaas-magic-cookie-';
+
+/**
+ * Extract JaaS client information from conference url.
+ *
+ * @param {string} conferenceUrl - Conference url without transport information (https etc.)
+ * @returns {Object}
+ */
+function extractTenantDataFromUrl(conferenceUrl = '') {
+
+    const [ , urlFirstPart, ...confPath ] = conferenceUrl.split('/');
+
+    let tenant = '';
+    let jaasClientId = '';
+    let jaasMeetingFqn = '';
+    let isJaaSTenant = false;
+
+    if (urlFirstPart && urlFirstPart.startsWith(VPAAS_TENANT_PREFIX)) {
+        tenant = urlFirstPart;
+        jaasMeetingFqn = path.join(urlFirstPart, ...confPath);
+        jaasClientId = urlFirstPart.replace(VPAAS_TENANT_PREFIX, '');
+        isJaaSTenant = true;
+    }
+
+    return {
+        tenant,
+        jaasMeetingFqn,
+        jaasClientId,
+        isJaaSTenant
+    };
+}
+
+/**
  * Checks wheather or not the passed in variable is an Object.
  */
 function isObject(input) {
@@ -352,9 +408,11 @@ module.exports = {
     asyncDeleteFile,
     extractTracks,
     extractStreams,
+    extractTenantDataFromUrl,
     fixedDecMean,
     getEnvName,
     getIdealWorkerCount,
+    getSecondsSinceEpoch,
     isConnectionSuccessful,
     isIceDisconnected,
     isIceFailed,
@@ -368,5 +426,6 @@ module.exports = {
     timeBetween,
     uuidV4,
     getSQLTimestamp,
-    isObject
+    isObject,
+    addPKCS8ContainerAndNewLine
 };
