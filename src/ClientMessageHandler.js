@@ -1,6 +1,7 @@
 
 const logger = require('./logging');
 const storeFile = require('./store/file');
+const utils = require('./utils/utils');
 
 const messageTypes = {
     SequenceNumber: 'sn'
@@ -14,8 +15,9 @@ class ClientMessageHandler {
      * @param tempPath {string}
      * @param sequenceNumberSendingInterval {number}
      */
-    constructor({ statssessionid, tempPath, sequenceNumberSendingInterval, demuxSink, client }) {
-        this.statssessionid = statssessionid;
+    constructor({ statsSessionId, tempPath, sequenceNumberSendingInterval, demuxSink, client }) {
+        logger.debug('[ClientMessageHandler] Constructor statsSessionId', statsSessionId);
+        this.statsSessionId = statsSessionId;
         this.tempPath = tempPath;
         this.sequenceNumberSendingInterval = sequenceNumberSendingInterval;
         this.demuxSink = demuxSink;
@@ -26,12 +28,14 @@ class ClientMessageHandler {
      *  Sends the last sequence number from demuxSink or reads from the dump file
     */
     sendLastSequenceNumber() {
-        logger.info('Sending last sequence number from demuxSink');
+        logger.debug('[ClientMessageHandler] Sending last sequence number for: ', this.statsSessionId);
         let sequenceNumber = 0;
 
         if (this.demuxSink.lastSequenceNumber > 0) {
+            logger.debug('[ClientMessageHandler] Last sequence number from demux ');
             sequenceNumber = this.demuxSink.lastSequenceNumber;
         } else {
+            logger.debug('[ClientMessageHandler] Last sequence number from dump ');
             sequenceNumber = this._getLastSequenceNumberFromDump();
         }
 
@@ -40,29 +44,29 @@ class ClientMessageHandler {
                 this._createMessage(messageTypes.SequenceNumber, sequenceNumber)
             )
         );
-        setTimeout(() => this.sendLastSequenceNumber(this.client, this.statssessionid),
-            this.sequenceNumberSendingInterval);
+
+        if (this.client.readyState === 1) {
+            setTimeout(() => this.sendLastSequenceNumber(this.client, this.statsSessionId),
+                this.sequenceNumberSendingInterval);
+        }
+        logger.debug('[ClientMessageHandler] Last sequence number: ', sequenceNumber);
     }
 
     /**
      * Reads the last sequnce number from the dump file.
      */
     _getLastSequenceNumberFromDump() {
-        const dumpPath = `${this.tempPath}/${this.statssessionid}`;
+        const dumpPath = `${this.tempPath}/${this.statsSessionId}`;
+
+        logger.debug('[ClientMessageHandler] Last sequence number from dump: ', dumpPath);
 
         storeFile.getLastLine(dumpPath, 1)
             .then(
-                lastLine => {
-                    const jsonData = JSON.parse(lastLine);
-
-                    if (Array.isArray(jsonData) && jsonData[4] !== undefined) {
-                        return jsonData[4];
-                    }
-
-                    return -1;
-                })
+                lastLine => utils.parseLineForSequenceNumber(lastLine))
             .catch(() => {
-                logger.info('[App] New connection. File doesn\'t exist.');
+                logger.debug('[ClientMessageHandler] New connection. File doesn\'t exist. file: ', dumpPath);
+
+                return -1;
             });
     }
 

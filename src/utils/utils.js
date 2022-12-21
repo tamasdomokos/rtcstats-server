@@ -312,6 +312,23 @@ function getIdealWorkerCount() {
 }
 
 /**
+ *
+ * @param {*} lastLine
+ */
+function parseLineForSequenceNumber(lastLine) {
+    const jsonData = JSON.parse(lastLine);
+
+    logger.info('[ClientMessageHandler] Last sequence number from line: ', lastLine);
+    if (Array.isArray(jsonData) && jsonData[4] !== undefined) {
+        logger.info('[ClientMessageHandler] Last sequence number from dump: ', jsonData[4]);
+
+        return jsonData[4];
+    }
+
+    return -1;
+}
+
+/**
  * Get a SQL compliant timestamp (MDY DateStyle)
  * Time value or timestamp number
  * @param {number} value - An integer value representing the number of milliseconds since January 1, 1970, 00:00:00 UTC
@@ -440,5 +457,6 @@ module.exports = {
     getSQLTimestamp,
     isObject,
     addPKCS8ContainerAndNewLine,
-    obfuscatePII
+    obfuscatePII,
+    parseLineForSequenceNumber
 };

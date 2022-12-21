@@ -448,8 +448,13 @@ class FeatureExtractor {
 
         for await (const dumpLine of dumpReadLineI) {
             const requestSize = sizeof(dumpLine);
-            const dumpLineObj = JSON.parse(dumpLine);
+            let dumpLineObj;
 
+            try {
+                dumpLineObj = JSON.parse(dumpLine);
+            } catch (e) {
+                logger.error('[FeatureExtractor]: ', e);
+            }
             assert(Array.isArray(dumpLineObj), 'Unexpected dump format');
 
             const [ requestType, , , ] = dumpLineObj;

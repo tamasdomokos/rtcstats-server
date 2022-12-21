@@ -64,8 +64,9 @@ class OrphanFileHelper {
 
             response.then(
                 obj => {
-                    const meta = obj?.connectionInfo;
-                    const connectionInfo = obj?.identity;
+                    const jsonObj = JSON.parse(obj);
+                    const meta = jsonObj?.connectionInfo;
+                    const connectionInfo = jsonObj?.identity;
 
                     setTimeout(
                         () => this.dumpPersister.processData(fname, meta, connectionInfo),

@@ -171,7 +171,7 @@ class DemuxSink extends Writable {
         // if the entry already exists because some other instance uploaded first, the same incremental approach needs
         // to be taken.
         while (!fd) {
-            fd = await fsOpen(filePath, 'w');
+            fd = await fsOpen(filePath, 'a');
         }
 
         this.log.info('[Demux] open-sink id: %s; path %s; connection: %o', id, filePath, this.connectionInfo);
@@ -275,16 +275,10 @@ class DemuxSink extends Writable {
         const { statsSessionId, type, data } = request;
 
         // save the last sequence number to notify the frontend
-        if (Array.isArray(data)) {
-            this.lastSequenceNumber = data[3];
-            this.lastTimestamp = data[4];
-        } else {
-            const jsonData = JSON.parse(data);
+        const jsonData = Array.isArray(data) ? data : JSON.parse(data);
 
-            this.lastSequenceNumber = jsonData[3];
-            this.lastTimestamp = jsonData[4];
-        }
-
+        this.lastTimestamp = jsonData[3];
+        this.lastSequenceNumber = jsonData[4];
 
         // If this is the first request coming from this client id ,create a new sink (file write stream in this case)
         // and it's associated metadata.

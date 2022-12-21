@@ -18,10 +18,10 @@ class WsHandler {
     /**
      *
      */
-    constructor({ tempPath, reconnectTimout, sequenceNumberSendingInterval, dumpPersister }) {
+    constructor({ tempPath, reconnectTimeout, sequenceNumberSendingInterval, dumpPersister }) {
         this.sessionIdTimeouts = {};
         this.tempPath = tempPath;
-        this.reconnectTimout = reconnectTimout;
+        this.reconnectTimeout = reconnectTimeout;
         this.sequenceNumberSendingInterval = sequenceNumberSendingInterval;
         this.dumpPersister = dumpPersister;
     }
@@ -49,7 +49,6 @@ class WsHandler {
      */
     _handle(client, upgradeReq) {
         PromCollector.connected.inc();
-        logger.info('[App] Websocket connection handler');
 
         // the url the client is coming from
         const referer = upgradeReq.headers.origin + upgradeReq.url;
@@ -59,18 +58,27 @@ class WsHandler {
 
         const connectionInfo = this._createConnectionInfo(upgradeReq, referer, ua, client);
         const demuxSink = this._createDemuxSink(connectionInfo);
-        const clientSink = this._createClientSink(statsSessionId, demuxSink, client);
+
+        logger.info('[WsHandler] Client connected: %s', statsSessionId);
+        const clientMessageHandler = this._createClientMessageHandler(statsSessionId, demuxSink, client);
 
         this._clearConnectionTimeout(statsSessionId);
-        clientSink.sendLastSequenceNumber(client, statsSessionId);
+        clientMessageHandler.sendLastSequenceNumber();
 
         demuxSink.on('close-sink', ({ id, meta }) => {
-            logger.info('[App] Websocket disconnected waiting for processing the data %s', id);
+
+            logger.info(
+                '[WsHandler] Websocket disconnected waiting for processing the data %s in %d ms',
+                id,
+                this.reconnectTimeout
+            );
+
             const { confID = '' } = meta;
             const tenantInfo = extractTenantDataFromUrl(confID);
 
             const timemoutId = setTimeout(
-                () => this.dumpPersister.processData(id, meta, connectionInfo), this.reconnectTimout, tenantInfo);
+                () => this.dumpPersister.processData(id, meta, connectionInfo, tenantInfo), this.reconnectTimeout
+            );
 
             this.sessionIdTimeouts[id] = timemoutId;
         });
@@ -85,12 +93,12 @@ class WsHandler {
                     // the whole pipeline does as well,
                     PromCollector.sessionErrorCount.inc();
 
-                    logger.error('[App] Connection pipeline: %o;  error: %o', connectionInfo, err);
+                    logger.error('[WsHandler] Connection pipeline: %o;  error: %o', connectionInfo, err);
                 }
             });
 
         connectionPipeline.on('finish', () => {
-            logger.info('[App] Connection pipeline successfully finished %o', connectionInfo);
+            logger.info('[WsHandler] Connection pipeline successfully finished %o', connectionInfo);
 
             // We need to explicity close the ws, you might notice that we don't do the same in case of an error
             // that's because in that case the error will propagate up the pipeline chain and the ws stream will also
@@ -99,14 +107,14 @@ class WsHandler {
         });
 
         logger.info(
-            '[App] New app connected: ua: %s, protocol: %s, referer: %s',
+            '[WsHandler] New app connected: ua: %s, protocol: %s, referer: %s',
             ua,
             client.protocol,
             referer
         );
 
         client.on('error', e => {
-            logger.error('[App] Websocket error: %s', e);
+            logger.error('[WsHandler] Websocket error: %s', e);
             PromCollector.connectionError.inc();
         });
 
@@ -131,9 +139,9 @@ class WsHandler {
     /**
      *
      */
-    _createClientSink(statsSessionId, demuxSink, client) {
+    _createClientMessageHandler(statsSessionId, demuxSink, client) {
         const clientMessageHandlerOptions = {
-            id: statsSessionId,
+            statsSessionId,
             tempPath: this.tempPath,
             sequenceNumberSendingInterval: this.sequenceNumberSendingInterval,
             demuxSink,
@@ -171,7 +179,7 @@ class WsHandler {
         const timeoutId = this.sessionIdTimeouts[id];
 
         if (timeoutId) {
-            logger.info('[App] Clear timeout for connectionId: %s', id);
+            logger.info('[WsHandler] Clear timeout for connectionId: %s', id);
             clearTimeout(timeoutId);
         }
     }

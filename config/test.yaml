@@ -11,6 +11,10 @@ server:
 amplitude:
     key: ''
 
+features:
+    reconnectTimeout: 20000
+    sequenceNumberSendingInterval: 60000
+
 s3:
     accessKeyId:
     secretAccessKey:
