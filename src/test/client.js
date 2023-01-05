@@ -374,7 +374,7 @@ function runTest() {
     testCheckRouter = new TestCheckRouter(server);
 
     simulateConnection(
-        './src/test/dumps/google-standard-stats-p2p',
+        './src/test/dumps/google-standard-stats-p2p-reconnect',
         './src/test/jest/results/google-standard-stats-p2p-result.json',
         BrowserUASamples.CHROME,
         ProtocolV.STANDARD
