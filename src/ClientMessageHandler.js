@@ -70,7 +70,7 @@ class ClientMessageHandler {
             .catch(() => {
                 logger.debug('[ClientMessageHandler] New connection. File doesn\'t exist. file: ', dumpPath);
 
-                return -1;
+                return 0;
             });
 
         const result = await promis;
