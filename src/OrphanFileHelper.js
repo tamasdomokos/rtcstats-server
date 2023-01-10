@@ -64,15 +64,25 @@ class OrphanFileHelper {
 
             response.then(
                 obj => {
-                    const jsonObj = JSON.parse(obj);
-                    const meta = jsonObj?.connectionInfo;
-                    const connectionInfo = jsonObj?.identity;
+                    const jsonObj = obj;
+                    let meta;
+                    let connectionInfo;
+
+                    if (jsonObj?.connectionInfo) {
+                        meta = JSON.parse(jsonObj?.connectionInfo);
+                        meta.dumpPath = `${filePath}`;
+                    }
+
+                    if (jsonObj?.identity) {
+                        connectionInfo = jsonObj?.identity;
+                    }
 
                     setTimeout(
                         () => this.dumpPersister.processData(fname, meta, connectionInfo),
                         this.reconnectTimout);
                 })
-                .catch(() => {
+                .catch(e => {
+                    logger.error(`[OrphanFileHelper] ${e}`);
                     logger.info(`[OrphanFileHelper] New connection. File doesn't exist. ${filePath}`);
                 });
         }
