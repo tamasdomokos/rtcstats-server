@@ -22,12 +22,13 @@ class ClientMessageHandler {
         this.sequenceNumberSendingInterval = sequenceNumberSendingInterval;
         this.demuxSink = demuxSink;
         this.client = client;
+        this.sendLastSequenceNumber = this.sendLastSequenceNumber.bind(this);
     }
 
     /**
      *  Sends the last sequence number from demuxSink or reads from the dump file
     */
-    sendLastSequenceNumber() {
+    async sendLastSequenceNumber() {
         logger.debug('[ClientMessageHandler] Sending last sequence number for: ', this.statsSessionId);
         let sequenceNumber = 0;
 
@@ -36,7 +37,7 @@ class ClientMessageHandler {
             sequenceNumber = this.demuxSink.lastSequenceNumber;
         } else {
             logger.debug('[ClientMessageHandler] Last sequence number from dump ');
-            sequenceNumber = this._getLastSequenceNumberFromDump();
+            sequenceNumber = await this._getLastSequenceNumberFromDump();
         }
 
         this.client.send(
@@ -46,8 +47,11 @@ class ClientMessageHandler {
         );
 
         if (this.client.readyState === 1) {
-            setTimeout(() => this.sendLastSequenceNumber(this.client, this.statsSessionId),
-                this.sequenceNumberSendingInterval);
+            setTimeout(
+                this.sendLastSequenceNumber,
+                this.sequenceNumberSendingInterval,
+                this.client, this.statsSessionId
+            );
         }
         logger.debug('[ClientMessageHandler] Last sequence number: ', sequenceNumber);
     }
@@ -55,12 +59,12 @@ class ClientMessageHandler {
     /**
      * Reads the last sequnce number from the dump file.
      */
-    _getLastSequenceNumberFromDump() {
+    async _getLastSequenceNumberFromDump() {
         const dumpPath = `${this.tempPath}/${this.statsSessionId}`;
 
         logger.debug('[ClientMessageHandler] Last sequence number from dump: ', dumpPath);
 
-        storeFile.getLastLine(dumpPath, 1)
+        const promis = storeFile.getLastLine(dumpPath, 1)
             .then(
                 lastLine => utils.parseLineForSequenceNumber(lastLine))
             .catch(() => {
@@ -68,6 +72,10 @@ class ClientMessageHandler {
 
                 return -1;
             });
+
+        const result = await promis;
+
+        return result;
     }
 
     /**

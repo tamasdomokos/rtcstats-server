@@ -275,10 +275,13 @@ class DemuxSink extends Writable {
         const { statsSessionId, type, data } = request;
 
         // save the last sequence number to notify the frontend
-        const jsonData = Array.isArray(data) ? data : JSON.parse(data);
+        if (data) {
+            const jsonData = Array.isArray(data) ? data : JSON.parse(data);
 
-        this.lastTimestamp = jsonData[3];
-        this.lastSequenceNumber = jsonData[4];
+            this.lastTimestamp = jsonData[3];
+            this.lastSequenceNumber = jsonData[4];
+        }
+
 
         // If this is the first request coming from this client id ,create a new sink (file write stream in this case)
         // and it's associated metadata.
