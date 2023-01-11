@@ -286,7 +286,7 @@ class DemuxSink extends Writable {
      */
     _isDataAlreadyProcessed(statsSessionId, sequenceNumber) {
         if ((sequenceNumber - this.lastSequenceNumber > 1) && !fs.existsSync(this.persistDumpPath)) {
-            this.log.error(`[Demux] Session reconnected but file is already processed! sessionId: ${statsSessionId}`);
+            this.log.error(`[Demux] Session reconnected but file was already processed! sessionId: ${statsSessionId}`);
             PromCollector.dataIsAlreadyProcessedCount.inc();
 
             return true;
