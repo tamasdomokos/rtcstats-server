@@ -28,7 +28,7 @@ class ClientMessageHandler {
     /**
      *  Sends the last sequence number from demuxSink or reads from the dump file
     */
-    async sendLastSequenceNumber() {
+    async sendLastSequenceNumber(isInitial) {
         logger.debug('[ClientMessageHandler] Sending last sequence number for: ', this.statsSessionId);
         let sequenceNumber = 0;
 
@@ -40,9 +40,17 @@ class ClientMessageHandler {
             sequenceNumber = await this._getLastSequenceNumberFromDump();
         }
 
+        const body = {
+            value: sequenceNumber
+        };
+
+        if (isInitial === true) {
+            body.state = 'initial';
+        }
+
         this.client.send(
             JSON.stringify(
-                this._createMessage(messageTypes.SequenceNumber, sequenceNumber)
+                this._createMessage(messageTypes.SequenceNumber, body)
             )
         );
 

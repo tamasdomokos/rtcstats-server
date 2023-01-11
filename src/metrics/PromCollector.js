@@ -159,6 +159,18 @@ const PromCollector = {
         percentiles: [ 0.1, 0.25, 0.5, 0.75, 0.9 ]
     }),
 
+    missingSequenceNumberCount: new prom.Counter({
+        name: 'rtcstats_missing_sequence_number_count',
+        help: 'number of total number of missing sequence numbers'
+    }),
+
+
+    dataIsAlreadyProcessedCount: new prom.Counter({
+        name: 'rtcstats_data_already_processed_count',
+        help: 'date already processed but the client is reconnected with the same sessionid'
+    }),
+
+
     metrics: () => prom.register.metrics(),
 
     collectDefaultMetrics: () => prom.collectDefaultMetrics(),

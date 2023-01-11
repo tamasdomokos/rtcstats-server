@@ -63,7 +63,7 @@ class WsHandler {
         const clientMessageHandler = this._createClientMessageHandler(statsSessionId, demuxSink, client);
 
         this._clearConnectionTimeout(statsSessionId);
-        clientMessageHandler.sendLastSequenceNumber();
+        clientMessageHandler.sendLastSequenceNumber(true);
 
         demuxSink.on('close-sink', ({ id, meta }) => {
 

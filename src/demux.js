@@ -37,7 +37,7 @@ class DemuxSink extends Writable {
         this.timeoutId = -1;
         this.sinkMap = new Map();
         this.persistDump = persistDump;
-        this.lastSequenceNumber = -1;
+        this.lastSequenceNumber = 0;
         this.lastTimestamp = -1;
 
         // TODO move this as a separate readable/writable stream so we don't pollute this class.
@@ -263,6 +263,39 @@ class DemuxSink extends Writable {
     }
 
     /**
+     *
+     * @param {*} statsSessionId
+     * @param {*} sequenceNumber
+     */
+    _isValidSequenceNumber(statsSessionId, sequenceNumber) {
+        if (sequenceNumber - this.lastSequenceNumber > 1) {
+            this.log.error(`[Demux] sequence number is missing! 
+                sessionId: ${statsSessionId} 
+                sequenceNumber: ${sequenceNumber} 
+                lastSequenceNumber: ${this.lastSequenceNumber}`
+            );
+            PromCollector.missingSequenceNumberCount.inc();
+        }
+    }
+
+    /**
+     *
+     * @param {*} statsSessionId
+     * @param {*} sequenceNumber
+     * @param {*} path
+     */
+    _isDataAlreadyProcessed(statsSessionId, sequenceNumber) {
+        if ((sequenceNumber - this.lastSequenceNumber > 1) && !fs.existsSync(this.persistDumpPath)) {
+            this.log.error(`[Demux] Session reconnected but file is already processed! sessionId: ${statsSessionId}`);
+            PromCollector.dataIsAlreadyProcessedCount.inc();
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Handle API requests.
      *
      * @param {Object} request - Request object
@@ -277,9 +310,16 @@ class DemuxSink extends Writable {
         // save the last sequence number to notify the frontend
         if (data) {
             const jsonData = Array.isArray(data) ? data : JSON.parse(data);
+            const sequenceNumber = jsonData[4];
+            const timestamp = jsonData[3];
 
-            this.lastTimestamp = jsonData[3];
-            this.lastSequenceNumber = jsonData[4];
+            if (this._isDataAlreadyProcessed(statsSessionId, sequenceNumber) === true) {
+                return;
+            }
+            this._isValidSequenceNumber(statsSessionId, sequenceNumber);
+            this.lastTimestamp = timestamp;
+
+            this.lastSequenceNumber = sequenceNumber;
         }
 
 
