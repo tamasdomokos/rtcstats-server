@@ -128,6 +128,7 @@ class WsHandler {
      */
     _createDemuxSink(connectionInfo) {
         const demuxSinkOptions = {
+            tempPath: this.tempPath,
             connectionInfo,
             dumpFolder: './temp',
             log: logger

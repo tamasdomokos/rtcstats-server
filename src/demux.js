@@ -28,7 +28,7 @@ class DemuxSink extends Writable {
      * @param {boolean} persistDump - Flag used for generating a complete dump of the data coming to the stream.
      * Required when creating mock tests.
      */
-    constructor({ dumpFolder, connectionInfo, log, persistDump = false }) {
+    constructor({ tempPath, dumpFolder, connectionInfo, log, persistDump = false }) {
         super({ objectMode: true });
 
         this.dumpFolder = dumpFolder;
@@ -39,6 +39,7 @@ class DemuxSink extends Writable {
         this.persistDump = persistDump;
         this.lastSequenceNumber = 0;
         this.lastTimestamp = -1;
+        this.tempPath = tempPath;
 
         // TODO move this as a separate readable/writable stream so we don't pollute this class.
         if (this.persistDump) {
@@ -285,7 +286,7 @@ class DemuxSink extends Writable {
      * @param {*} path
      */
     _isDataAlreadyProcessed(statsSessionId, sequenceNumber) {
-        if ((sequenceNumber - this.lastSequenceNumber > 1) && !fs.existsSync(this.persistDumpPath)) {
+        if ((sequenceNumber - this.lastSequenceNumber > 1) && !fs.existsSync(`${this.tempPath}/${statsSessionId}`)) {
             this.log.error(`[Demux] Session reconnected but file was already processed! sessionId: ${statsSessionId}`);
             PromCollector.dataIsAlreadyProcessedCount.inc();
 
