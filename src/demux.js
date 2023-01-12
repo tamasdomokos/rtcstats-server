@@ -14,6 +14,21 @@ const cwd = process.cwd();
 // not the FileHandle objects from fs.promises.open
 const fsOpen = util.promisify(fs.open);
 
+
+/**
+ *
+ */
+class RequestData {
+    /**
+     *
+     * @param {*} param0
+     */
+    constructor({ timestamp, sequenceNumber }) {
+        this.timestamp = timestamp;
+        this.sequenceNumber = sequenceNumber;
+    }
+}
+
 /**
  * Stream designed to handle API requests and write them to a sink (file WritableStream at this point)
  */
@@ -264,11 +279,19 @@ class DemuxSink extends Writable {
     }
 
     /**
+     * Validates first if a previously connected sessionId's data has been processed
+     * and checks if there is no missing sequence number
      *
      * @param {*} statsSessionId
      * @param {*} sequenceNumber
+     * @param {*} lastSequenceNumber
      */
-    _isValidSequenceNumber(statsSessionId, sequenceNumber) {
+    _validateSequenceNumber(statsSessionId, sequenceNumber, lastSequenceNumber) {
+        if ((sequenceNumber - lastSequenceNumber > 1) && !fs.existsSync(`${this.tempPath}/${statsSessionId}`)) {
+            PromCollector.dataIsAlreadyProcessedCount.inc();
+            throw new Error(`[Demux] Session reconnected but file was already processed! sessionId: ${statsSessionId}`);
+        }
+
         if (sequenceNumber - this.lastSequenceNumber > 1) {
             this.log.error(`[Demux] sequence number is missing! 
                 sessionId: ${statsSessionId} 
@@ -281,19 +304,16 @@ class DemuxSink extends Writable {
 
     /**
      *
-     * @param {*} statsSessionId
-     * @param {*} sequenceNumber
-     * @param {*} path
+     * @param {*} data
+     * @returns {RequestData}
      */
-    _isDataAlreadyProcessed(statsSessionId, sequenceNumber) {
-        if ((sequenceNumber - this.lastSequenceNumber > 1) && !fs.existsSync(`${this.tempPath}/${statsSessionId}`)) {
-            this.log.error(`[Demux] Session reconnected but file was already processed! sessionId: ${statsSessionId}`);
-            PromCollector.dataIsAlreadyProcessedCount.inc();
+    _toRequestData(data) {
+        const jsonData = Array.isArray(data) ? data : JSON.parse(data);
+        const sequenceNumber = jsonData[4];
+        const timestamp = jsonData[3];
 
-            return true;
-        }
-
-        return false;
+        return new RequestData({ timestamp,
+            sequenceNumber });
     }
 
     /**
@@ -303,24 +323,18 @@ class DemuxSink extends Writable {
      */
     async _handleRequest(request) {
         this._requestPrecondition(request);
-
         PromCollector.requestSizeBytes.observe(sizeof(request));
 
         const { statsSessionId, type, data } = request;
 
         // save the last sequence number to notify the frontend
         if (data) {
-            const jsonData = Array.isArray(data) ? data : JSON.parse(data);
-            const sequenceNumber = jsonData[4];
-            const timestamp = jsonData[3];
+            const requestData = this._toRequestData(data);
 
-            if (this._isDataAlreadyProcessed(statsSessionId, sequenceNumber) === true) {
-                return;
-            }
-            this._isValidSequenceNumber(statsSessionId, sequenceNumber);
-            this.lastTimestamp = timestamp;
+            this._validateSequenceNumber(statsSessionId, requestData.sequenceNumber, this.lastSequenceNumber);
 
-            this.lastSequenceNumber = sequenceNumber;
+            this.lastTimestamp = requestData.timestamp;
+            this.lastSequenceNumber = requestData.sequenceNumber;
         }
 
 
