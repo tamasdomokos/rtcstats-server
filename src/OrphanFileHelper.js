@@ -10,9 +10,9 @@ class OrphanFileHelper {
     /**
      *
      */
-    constructor({ tempPath, reconnectTimeout, dumpPersister }) {
+    constructor({ tempPath, orphanFileCleanupTimeoutMinutes, dumpPersister }) {
         this.tempPath = tempPath;
-        this.reconnectTimeout = reconnectTimeout;
+        this.orphanFileCleanupTimeoutMs = orphanFileCleanupTimeoutMinutes * 60 * 1000;
         this.dumpPersister = dumpPersister;
     }
 
@@ -57,7 +57,7 @@ class OrphanFileHelper {
         const lastModifiedDurationMs = Math.abs(Date.now() - stats.mtime.getTime());
 
         logger.debug(`[OrphanFileHelper] File last modified ${lastModifiedDurationMs} ms ago:`);
-        if (lastModifiedDurationMs > this.reconnectTimeout) {
+        if (lastModifiedDurationMs > this.orphanFileCleanupTimeoutMs) {
             logger.debug(`[OrphanFileHelper] Start processing the file ${`${filePath}`}`);
             const response = fileStore.getObjectsByKeys(
                 filePath, [ 'connectionInfo', 'identity' ]);
@@ -77,9 +77,7 @@ class OrphanFileHelper {
                         connectionInfo = jsonObj?.identity;
                     }
 
-                    setTimeout(
-                        () => this.dumpPersister.processData(fname, meta, connectionInfo),
-                        this.reconnectTimout);
+                    this.dumpPersister.processData(fname, meta, connectionInfo);
                 })
                 .catch(e => {
                     logger.error(`[OrphanFileHelper] ${e}`);
