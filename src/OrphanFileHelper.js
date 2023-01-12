@@ -24,23 +24,20 @@ class OrphanFileHelper {
 
         if (fs.existsSync(this.tempPath)) {
             fs.readdirSync(this.tempPath).forEach(fname => {
-                try {
-                    const filePath = `${this.tempPath}/${fname}`;
+                const filePath = `${this.tempPath}/${fname}`;
 
-                    logger.debug(`[OrphanFileHelper] Trying to process file ${filePath}`);
-                    fs.stat(filePath, (err, stats) => {
-                        if (err) {
-                            logger.error(`[OrphanFileHelper] File does not exist! ${filePath}`);
-                        }
+                logger.debug(`[OrphanFileHelper] Trying to process file ${filePath}`);
+                fs.stat(filePath, (err, stats) => {
+                    if (err) {
+                        logger.error(`[OrphanFileHelper] File does not exist! ${filePath}`);
+                    }
 
-                        this.processIfExpired(stats, filePath, fname);
-                    });
-                } catch (e) {
-                    logger.error(`[OrphanFileHelper] Error while unlinking file ${fname} - ${e}`);
-                }
+                    this.processIfExpired(stats, filePath, fname);
+                });
             });
         } else {
             logger.error('[OrphanFileHelper] Temp path doesn\'t exists. path: ', this.tempPath);
+            throw new Error(`Temp path doesn't exists. tempPath: ${this.tempPath}`);
         }
     }
 
