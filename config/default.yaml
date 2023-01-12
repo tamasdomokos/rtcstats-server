@@ -18,6 +18,7 @@ features:
     reconnectTimeout: 60000
     sequenceNumberSendingInterval: 60000
     orphanFileCleanupTimeoutMinutes: 12
+    cleanupCronIntervalMinutes: 720
 
 amplitude:
     key:

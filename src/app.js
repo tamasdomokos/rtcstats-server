@@ -30,7 +30,13 @@ let featPublisher;
 let webhookSender;
 let secretManager;
 let tempDumpPath;
-const { s3, features: { disableFeatExtraction, reconnectTimeout, sequenceNumberSendingInterval } } = config;
+
+const { s3, features: {
+    disableFeatExtraction,
+    reconnectTimeout,
+    sequenceNumberSendingInterval,
+    cleanupCronIntervalMinutes }
+} = config;
 
 const workerScriptPath = path.join(__dirname, './worker-pool/ExtractWorker.js');
 const workerPool = new WorkerPool(workerScriptPath, getIdealWorkerCount());
@@ -53,7 +59,8 @@ const wsHandler = new WsHandler({
 const orphanFileHelper = new OrphanFileHelper({
     tempPath: getTempPath(),
     reconnectTimeout,
-    dumpPersister
+    dumpPersister,
+    cleanupCronIntervalMinutes
 });
 
 workerPool.on(ResponseType.DONE, body => {

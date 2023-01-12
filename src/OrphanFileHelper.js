@@ -10,10 +10,19 @@ class OrphanFileHelper {
     /**
      *
      */
-    constructor({ tempPath, orphanFileCleanupTimeoutMinutes, dumpPersister }) {
+    constructor({ tempPath, orphanFileCleanupTimeoutMinutes, dumpPersister, cleanupCronIntervalMinutes }) {
         this.tempPath = tempPath;
         this.orphanFileCleanupTimeoutMs = orphanFileCleanupTimeoutMinutes * 60 * 1000;
         this.dumpPersister = dumpPersister;
+        this.cleanupCronIntervalMs = cleanupCronIntervalMinutes * 60 * 1000;
+        this.processOldFiles = this.processOldFiles.bind(this);
+    }
+
+    /**
+     *
+     */
+    startCron() {
+        setInterval(this.cleanupCronIntervalMs, this.processOldFiles);
     }
 
     /**
