@@ -381,6 +381,13 @@ function runTest() {
     );
 
     simulateConnection(
+        './src/test/dumps/google-standard-stats-p2p',
+        './src/test/jest/results/google-standard-stats-p2p-result.json',
+        BrowserUASamples.CHROME,
+        ProtocolV.STANDARD
+    );
+
+    simulateConnection(
         './src/test/dumps/google-standard-stats-sfu',
         './src/test/jest/results/google-standard-stats-sfu-result.json',
         BrowserUASamples.CHROME,

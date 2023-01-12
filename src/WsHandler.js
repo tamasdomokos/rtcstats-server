@@ -19,13 +19,14 @@ class WsHandler {
     /**
      *
      */
-    constructor({ tempPath, reconnectTimeout, sequenceNumberSendingInterval, workerPool }) {
+    constructor({ tempPath, reconnectTimeout, sequenceNumberSendingInterval, workerPool, config }) {
         this.sessionIdTimeouts = {};
         this.tempPath = tempPath;
         this.reconnectTimeout = reconnectTimeout;
         this.sequenceNumberSendingInterval = sequenceNumberSendingInterval;
         this.processData = this.processData.bind(this);
         this.workerPool = workerPool;
+        this.config = config;
     }
 
     /**
@@ -121,8 +122,8 @@ class WsHandler {
             const { confID = '' } = meta;
             const tenantInfo = extractTenantDataFromUrl(confID);
 
-            const timemoutId = setTimeout(this.reconnectTimeout,
-                this.processData,
+            const timemoutId = setTimeout(this.processData,
+                this.reconnectTimeout,
                 id, meta, connectionInfo, tenantInfo
             );
 

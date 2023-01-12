@@ -1,9 +1,9 @@
 const fs = require('fs');
 
-const utils = require('../utils/utils');
 
 const logger = require('./logging');
 const fileStore = require('./store/file');
+const utils = require('./utils/utils');
 
 /**
  *

@@ -1,10 +1,9 @@
-const utils = require('../utils/utils');
 
 const logger = require('./logging');
 const PromCollector = require('./metrics/PromCollector');
 const { saveEntryAssureUnique } = require('./store/dynamo');
 const initS3Store = require('./store/s3.js');
-const { asyncDeleteFile } = require('./utils/utils');
+const { asyncDeleteFile, getDumpPath } = require('./utils/utils');
 
 /**
  *
@@ -13,12 +12,11 @@ class DumpPersister {
     /**
      *
      */
-    constructor({ tempPath, s3Config, disableFeatExtraction, webhookSender, config }) {
+    constructor({ tempPath, s3Config, disableFeatExtraction, webhookSender }) {
         this.tempPath = tempPath;
         this.store = this.createDumpStorage(s3Config);
         this.disableFeatExtraction = disableFeatExtraction;
         this.webhookSender = webhookSender;
-        this.config = config;
     }
 
     /**
@@ -66,7 +64,7 @@ class DumpPersister {
         } = sinkMeta;
 
 
-        const dumpPath = utils.getDumpPath(this.tempPath, clientId);
+        const dumpPath = getDumpPath(this.tempPath, clientId);
         const { webhooks: { sendRtcstatsUploaded } = { sendRtcstatsUploaded: false } } = this.config;
 
         try {
