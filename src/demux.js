@@ -368,11 +368,11 @@ class DemuxSink extends Writable {
         case 'identity':
             return this._sinkUpdateMetadata(sinkData, data);
 
-            // Generic request with stats data, simply write it to the sink.
+        // Generic request with stats data, simply write it to the sink.
         case 'stats-entry':
             return this._sinkWrite(sinkData.sink, data);
 
-            // Request sent by clients in order to keep the timeout from triggering.
+        // Request sent by clients in order to keep the timeout from triggering.
         case 'keepalive':
             this.log.debug('[Demux] Keepalive received for :', statsSessionId);
 
