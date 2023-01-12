@@ -5,6 +5,7 @@ const { Writable } = require('stream');
 const util = require('util');
 
 const PromCollector = require('./metrics/PromCollector.js');
+const utils = require('./utils/utils');
 const { uuidV4 } = require('./utils/utils.js');
 
 
@@ -287,7 +288,8 @@ class DemuxSink extends Writable {
      * @param {*} lastSequenceNumber
      */
     _validateSequenceNumber(statsSessionId, sequenceNumber, lastSequenceNumber) {
-        if ((sequenceNumber - lastSequenceNumber > 1) && !fs.existsSync(`${this.tempPath}/${statsSessionId}`)) {
+        if ((sequenceNumber - lastSequenceNumber > 1)
+        && !fs.existsSync(utils.getDumpPath(this.tempPath, statsSessionId))) {
             PromCollector.dataIsAlreadyProcessedCount.inc();
             throw new Error(`[Demux] Session reconnected but file was already processed! sessionId: ${statsSessionId}`);
         }

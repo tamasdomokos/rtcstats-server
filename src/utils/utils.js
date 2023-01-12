@@ -419,6 +419,16 @@ function isObject(input) {
     return typeof input === 'object' && !Array.isArray(input) && input !== null;
 }
 
+/**
+ *
+ * @param {*} tempPath
+ * @param {*} statsSessionId
+ * @returns
+ */
+function getDumpPath(tempPath, statsSessionId) {
+    return `${tempPath}/${statsSessionId}`;
+}
+
 const RequestType = Object.freeze({
     PROCESS: 'PROCESS'
 });
@@ -456,6 +466,7 @@ module.exports = {
     uuidV4,
     getSQLTimestamp,
     isObject,
+    getDumpPath,
     addPKCS8ContainerAndNewLine,
     obfuscatePII,
     parseLineForSequenceNumber

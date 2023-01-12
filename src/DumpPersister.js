@@ -1,3 +1,5 @@
+const utils = require('../utils/utils');
+
 const logger = require('./logging');
 const PromCollector = require('./metrics/PromCollector');
 const { saveEntryAssureUnique } = require('./store/dynamo');
@@ -63,7 +65,8 @@ class DumpPersister {
             isJaaSTenant
         } = sinkMeta;
 
-        const dumpPath = `${this.tempPath}/${clientId}`;
+
+        const dumpPath = utils.getDumpPath(this.tempPath, clientId);
         const { webhooks: { sendRtcstatsUploaded } = { sendRtcstatsUploaded: false } } = this.config;
 
         try {

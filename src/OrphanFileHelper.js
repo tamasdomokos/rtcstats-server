@@ -1,5 +1,7 @@
 const fs = require('fs');
 
+const utils = require('../utils/utils');
+
 const logger = require('./logging');
 const fileStore = require('./store/file');
 
@@ -33,7 +35,8 @@ class OrphanFileHelper {
 
         if (fs.existsSync(this.tempPath)) {
             fs.readdirSync(this.tempPath).forEach(fname => {
-                const filePath = `${this.tempPath}/${fname}`;
+
+                const filePath = utils.getDumpPath(this.tempPath, fname);
 
                 logger.debug(`[OrphanFileHelper] Trying to process file ${filePath}`);
                 fs.stat(filePath, (err, stats) => {

@@ -59,7 +59,7 @@ class ClientMessageHandler {
      * Reads the last sequnce number from the dump file.
      */
     async _getLastSequenceNumberFromDump() {
-        const dumpPath = `${this.tempPath}/${this.statsSessionId}`;
+        const dumpPath = utils.getDumpPath(this.tempPath, this.statsSessionId);
 
         logger.debug('[ClientMessageHandler] Last sequence number from dump: ', dumpPath);
 
