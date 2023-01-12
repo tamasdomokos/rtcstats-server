@@ -30,7 +30,7 @@ class OrphanFileHelper {
                         logger.debug(`[OrphanFileHelper] Trying to process file ${filePath}`);
                         fs.stat(filePath, (err, stats) => {
                             if (err) {
-                                throw err;
+                                logger.error(`[OrphanFileHelper] File does not exist! ${filePath}`);
                             }
 
                             this.processIfExpired(stats, filePath, fname);
