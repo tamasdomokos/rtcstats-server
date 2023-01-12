@@ -10,10 +10,10 @@ class OrphanFileHelper {
     /**
      *
      */
-    constructor({ tempPath, orphanFileCleanupTimeoutMinutes, dumpPersister, cleanupCronIntervalMinutes }) {
+    constructor({ tempPath, orphanFileCleanupTimeoutMinutes, wsHandler, cleanupCronIntervalMinutes }) {
         this.tempPath = tempPath;
         this.orphanFileCleanupTimeoutMs = orphanFileCleanupTimeoutMinutes * 60 * 1000;
-        this.dumpPersister = dumpPersister;
+        this.wsHandler = wsHandler;
         this.cleanupCronIntervalMs = cleanupCronIntervalMinutes * 60 * 1000;
         this.processOldFiles = this.processOldFiles.bind(this);
     }
@@ -77,7 +77,7 @@ class OrphanFileHelper {
                         connectionInfo = jsonObj?.identity;
                     }
 
-                    this.dumpPersister.processData(fname, meta, connectionInfo);
+                    this.wsHandler.processData(fname, meta, connectionInfo);
                 })
                 .catch(e => {
                     logger.error(`[OrphanFileHelper] ${e}`);

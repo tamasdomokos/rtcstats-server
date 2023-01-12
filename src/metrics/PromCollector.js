@@ -170,6 +170,10 @@ const PromCollector = {
         help: 'date already processed but the client is reconnected with the same sessionid'
     }),
 
+    clientReconnectedCount: new prom.Counter({
+        name: 'rtcstats_client_reconnected_count',
+        help: 'Every time a client has been reconnected'
+    }),
 
     metrics: () => prom.register.metrics(),
 

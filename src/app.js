@@ -46,7 +46,6 @@ const dumpPersister = new DumpPersister({
     tempPath: getTempPath(),
     s3,
     disableFeatExtraction,
-    workerPool,
     webhookSender,
     config
 });
@@ -54,12 +53,12 @@ const wsHandler = new WsHandler({
     tempPath: getTempPath(),
     reconnectTimeout,
     sequenceNumberSendingInterval,
-    dumpPersister
+    workerPool
 });
 const orphanFileHelper = new OrphanFileHelper({
     tempPath: getTempPath(),
     reconnectTimeout,
-    dumpPersister,
+    wsHandler,
     cleanupCronIntervalMinutes
 });
 
