@@ -21,32 +21,26 @@ class OrphanFileHelper {
      */
     processOldFiles() {
         logger.info('[OrphanFileHelper] Waiting for connections to reconnect.');
-        try {
-            if (fs.existsSync(this.tempPath)) {
-                fs.readdirSync(this.tempPath).forEach(fname => {
-                    try {
-                        const filePath = `${this.tempPath}/${fname}`;
 
-                        logger.debug(`[OrphanFileHelper] Trying to process file ${filePath}`);
-                        fs.stat(filePath, (err, stats) => {
-                            if (err) {
-                                logger.error(`[OrphanFileHelper] File does not exist! ${filePath}`);
-                            }
+        if (fs.existsSync(this.tempPath)) {
+            fs.readdirSync(this.tempPath).forEach(fname => {
+                try {
+                    const filePath = `${this.tempPath}/${fname}`;
 
-                            this.processIfExpired(stats, filePath, fname);
-                        });
-                    } catch (e) {
-                        logger.error(`[OrphanFileHelper] Error while unlinking file ${fname} - ${e}`);
-                    }
-                });
-            } else {
-                logger.error('[OrphanFileHelper] Temp path doesn\'t exists. path: ', this.tempPath);
-            }
-        } catch (e) {
-            logger.error(`[OrphanFileHelper] Error while accessing working dir ${this.tempPath} - ${e}`);
+                    logger.debug(`[OrphanFileHelper] Trying to process file ${filePath}`);
+                    fs.stat(filePath, (err, stats) => {
+                        if (err) {
+                            logger.error(`[OrphanFileHelper] File does not exist! ${filePath}`);
+                        }
 
-            // The app is probably in an inconsistent state at this point, throw and stop process.
-            throw e;
+                        this.processIfExpired(stats, filePath, fname);
+                    });
+                } catch (e) {
+                    logger.error(`[OrphanFileHelper] Error while unlinking file ${fname} - ${e}`);
+                }
+            });
+        } else {
+            logger.error('[OrphanFileHelper] Temp path doesn\'t exists. path: ', this.tempPath);
         }
     }
 
