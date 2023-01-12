@@ -40,19 +40,10 @@ class ClientMessageHandler {
             sequenceNumber = await this._getLastSequenceNumberFromDump();
         }
 
-        const body = {
-            value: sequenceNumber
-        };
-
-        if (isInitial === true) {
-            body.state = 'initial';
-        }
-
-        this.client.send(
-            JSON.stringify(
-                this._createMessage(messageTypes.SequenceNumber, body)
-            )
-        );
+        this.client.send(this._createMessage(
+                    messageTypes.SequenceNumber,
+                    this._createSequenceNumberBody(sequenceNumber, isInitial)
+        ));
 
         if (this.client.readyState === 1) {
             setTimeout(
@@ -90,13 +81,31 @@ class ClientMessageHandler {
      *
      * @param type {string}
      * @param body {string}
-     * @returns {{body, type}}
+     * @returns {string}
      */
     _createMessage(type, body) {
-        return {
+        return JSON.stringify({
             'type': type,
             'body': body
+        });
+    }
+
+    /**
+     *
+     * @param {*} sequenceNumber
+     * @param {*} isInitial
+     * @returns {object}
+     */
+    _createSequenceNumberBody(sequenceNumber, isInitial) {
+        const body = {
+            value: sequenceNumber
         };
+
+        if (isInitial === true) {
+            body.state = 'initial';
+        }
+
+        return body;
     }
 }
 
