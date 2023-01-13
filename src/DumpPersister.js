@@ -12,11 +12,12 @@ class DumpPersister {
     /**
      *
      */
-    constructor({ tempPath, s3Config, disableFeatExtraction, webhookSender }) {
+    constructor({ tempPath, s3Config, disableFeatExtraction, webhookSender, config }) {
         this.tempPath = tempPath;
         this.store = this.createDumpStorage(s3Config);
         this.disableFeatExtraction = disableFeatExtraction;
         this.webhookSender = webhookSender;
+        this.config = config;
     }
 
     /**

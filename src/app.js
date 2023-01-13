@@ -46,7 +46,8 @@ const dumpPersister = new DumpPersister({
     tempPath: getTempPath(),
     s3,
     disableFeatExtraction,
-    webhookSender
+    webhookSender,
+    config
 });
 const wsHandler = new WsHandler({
     tempPath: getTempPath(),
