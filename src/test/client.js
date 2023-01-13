@@ -157,7 +157,8 @@ class RtcstatsConnection extends EventEmitter {
         let lineNumber = 0;
 
         this.lineReader.on('line', line => {
-            if ((lineNumber > this.lastLine) && !this.disconnected) {
+            if (((lineNumber > this.lastLine) && !this.disconnected)
+                || lineNumber === 0) {
                 if (line === DisconnectLineMarker) {
                     this.disconnected = true;
                     this.lastLine = lineNumber;

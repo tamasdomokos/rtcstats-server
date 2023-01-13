@@ -318,9 +318,9 @@ function getIdealWorkerCount() {
 function parseLineForSequenceNumber(lastLine) {
     const jsonData = JSON.parse(lastLine);
 
-    logger.info('[ClientMessageHandler] Last sequence number from line: ', lastLine);
+    logger.debug('[ClientMessageHandler] Last sequence number from line: ', lastLine);
     if (Array.isArray(jsonData) && jsonData[4] !== undefined) {
-        logger.info('[ClientMessageHandler] Last sequence number from dump: ', jsonData[4]);
+        logger.debug('[ClientMessageHandler] Last sequence number from dump: ', jsonData[4]);
 
         return jsonData[4];
     }
