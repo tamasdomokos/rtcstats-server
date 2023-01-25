@@ -190,7 +190,10 @@ class RtcstatsConnection extends EventEmitter {
     };
 
     _disconnect = () => {
+        const closedAfter = new Date() - this.startWSOpen;
+
         this.ws.close();
+        logger.info(`Disconnected ws ${this.id} in ${closedAfter}`);
         this.emit('disconnect', { id: this.id });
     };
 
@@ -213,6 +216,7 @@ class TestCheckRouter {
      */
     constructor(appServer) {
         this.testCheckMap = {};
+        this.disconnected = false;
 
         appServer.workerPool.on(ResponseType.DONE, body => {
             this.routeDoneResponse(body);
@@ -243,6 +247,7 @@ class TestCheckRouter {
     routeDoneResponse(body) {
         this.checkResponseFormat(body);
         this.testCheckMap[body.dumpInfo.clientId].checkDoneResponse(body);
+        logger.info('routeDoneResponse');
     }
 
     /**
@@ -283,7 +288,7 @@ class TestCheckRouter {
  */
 function checkTestCompletion(appServer) {
 
-    if (appServer.PromCollector.processed.get().values[0].value === 6) {
+    if (appServer.PromCollector.processed.get().values[0].value === 7) {
         appServer.stop();
     } else {
         setTimeout(checkTestCompletion, 8000, appServer);
@@ -296,8 +301,14 @@ function checkTestCompletion(appServer) {
  * @param {*} resultPath
  */
 function simulateConnection(dumpPath, resultPath, ua, protocolV) {
+    logger.info(`resultstring: ${resultPath}`);
+    this.disconnected = false;
+
     const resultString = fs.readFileSync(resultPath);
+
+    logger.info(`resultstring: ${resultString}`);
     const resultList = JSON.parse(resultString);
+    const resultTemplate = resultList.shift();
     const statsSessionId = uuidV4();
 
     const wsOptions = {
@@ -324,32 +335,41 @@ function simulateConnection(dumpPath, resultPath, ua, protocolV) {
     testCheckRouter.attachTest({
         statsSessionId,
         checkDoneResponse: body => {
-            logger.info('[TEST] Handling DONE event with statsSessionId %j, body %j',
-              body.dumpInfo.clientId, body);
-
             const parsedBody = JSON.parse(JSON.stringify(body));
-            const resultTemplate = resultList.shift();
 
-            resultTemplate.dumpInfo.clientId = statsSessionId;
-            resultTemplate.dumpInfo.userId = identityData.displayName;
-            resultTemplate.dumpInfo.app = identityData.applicationName;
-            resultTemplate.dumpInfo.sessionId = identityData.meetingUniqueId;
-            resultTemplate.dumpInfo.ampDeviceId = identityData.deviceId;
-            resultTemplate.dumpInfo.ampSessionId = identityData.sessionId;
-            resultTemplate.dumpInfo.conferenceUrl = identityData.confID;
+            if (this.disconnected === false) {
+                logger.info('[TEST] Handling DONE event with statsSessionId %j, body %j %j',
+                body.dumpInfo.clientId, body, this.disconnected);
 
-            resultTemplate.dumpInfo.startDate = body.dumpInfo.startDate;
-            resultTemplate.dumpInfo.endDate = body.dumpInfo.endDate;
-            resultTemplate.dumpInfo.dumpPath = body.dumpInfo.dumpPath;
+                logger.info(`[TEST] resultList: ${resultList}`);
+                resultList.shift();
 
-            // The size of the dump changes with every iteration as the application will add an additional
-            // 'connectionInfo' entry, thus metrics won't match.
-            delete parsedBody.features?.metrics;
-            delete resultTemplate.features?.metrics;
-            delete parsedBody.features?.browserInfo;
-            delete resultTemplate.features?.browserInfo;
+                resultTemplate.dumpInfo.clientId = statsSessionId;
+                resultTemplate.dumpInfo.userId = identityData.displayName;
+                resultTemplate.dumpInfo.app = identityData.applicationName;
+                resultTemplate.dumpInfo.sessionId = identityData.meetingUniqueId;
+                resultTemplate.dumpInfo.ampDeviceId = identityData.deviceId;
+                resultTemplate.dumpInfo.ampSessionId = identityData.sessionId;
+                resultTemplate.dumpInfo.conferenceUrl = identityData.confID;
 
-            assert.deepStrictEqual(parsedBody, resultTemplate);
+                resultTemplate.dumpInfo.startDate = body.dumpInfo.startDate;
+                resultTemplate.dumpInfo.endDate = body.dumpInfo.endDate;
+                resultTemplate.dumpInfo.dumpPath = body.dumpInfo.dumpPath;
+
+                // The size of the dump changes with every iteration as the application will add an additional
+                // 'connectionInfo' entry, thus metrics won't match.
+                delete parsedBody.features?.metrics;
+                delete resultTemplate.features?.metrics;
+                delete parsedBody.features?.browserInfo;
+                delete resultTemplate.features?.browserInfo;
+
+                assert.deepStrictEqual(parsedBody, resultTemplate);
+            } else {
+                // this is a reconnect dumpInfo is not relevant
+                logger.info('[TEST] Handling DONE event after reconnect with statsSessionId %j, body %j %j',
+                body.dumpInfo.clientId, body, this.disconnected);
+                assert.equal(statsSessionId, parsedBody.dumpInfo.clientId);
+            }
         },
         checkErrorResponse: body => {
             logger.info('[TEST] Handling ERROR event with body %o', body);
@@ -364,7 +384,12 @@ function simulateConnection(dumpPath, resultPath, ua, protocolV) {
 
     connection.connect();
     connection.on('disconnect', () => {
-        connection.connect();
+        this.disconnected = true;
+
+        // we need to wait a little bit before reconnecting.
+        setTimeout(() => {
+            connection.connect();
+        }, 500);
     });
 }
 

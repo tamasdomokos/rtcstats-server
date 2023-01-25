@@ -12,8 +12,10 @@ amplitude:
     key: ''
 
 features:
-    reconnectTimeout: 20000
     sequenceNumberSendingInterval: 60000
+    orphanFileCleanupTimeoutMinutes: 12
+    cleanupCronIntervalMinutes: 720
+    reconnectTimeout: 20000
 
 s3:
     accessKeyId:
