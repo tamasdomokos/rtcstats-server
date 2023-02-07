@@ -5,6 +5,7 @@ const { Writable } = require('stream');
 const util = require('util');
 
 const PromCollector = require('./metrics/PromCollector.js');
+const fileStore = require('./store/file');
 const utils = require('./utils/utils');
 const { uuidV4 } = require('./utils/utils.js');
 
@@ -143,7 +144,7 @@ class DemuxSink extends Writable {
      *
      * @param {string} id - sink id as saved in the sinkMap
      */
-    _handleSinkClose(id) {
+    _handleSinkClose(id, meta) {
         const sinkData = this.sinkMap.get(id);
 
         // Sanity check, make sure the data is available if not log an error and just send the id such that any
@@ -152,9 +153,8 @@ class DemuxSink extends Writable {
             // we need to emit this on file stream finish
             this.emit('close-sink', {
                 id: sinkData.id,
-                meta: { ...sinkData.meta }
+                meta: this._updateMeta(sinkData.meta, meta)
             });
-
         } else {
             this.log.error('[Demux] sink on close meta should be available id:', id);
 
@@ -177,6 +177,7 @@ class DemuxSink extends Writable {
 
         const idealPath = path.resolve(cwd, this.dumpFolder, id);
         const filePath = idealPath;
+        const isReconnect = fs.existsSync(filePath);
 
         // If a client reconnects the same client id will be provided thus cases can occur where the previous dump
         // with the same id is still present on the disk, in order to avoid conflicts and states where multiple
@@ -208,15 +209,23 @@ class DemuxSink extends Writable {
         this.sinkMap.set(id, sinkData);
 
         sink.on('error', error => this.log.error('[Demux] sink on error id: ', id, ' error:', error));
+        let identity;
+
+        if (isReconnect) {
+            identity = await this._getIdentityFromFile(sinkData.id);
+        }
 
         // The close event should be emitted both on error and happy flow.
-        sink.on('close', this._handleSinkClose.bind(this, id));
+        sink.on('close', this._handleSinkClose.bind(this, id, identity));
 
-        // Initialize the dump file by adding the connection metadata at the beginning. This data is usually used
-        // by visualizer tools for identifying the originating client (browser, jvb or other).
-        this._sinkWrite(
+        if (!isReconnect) {
+            // Initialize the dump file by adding the connection metadata at the beginning. This data is usually used
+            // by visualizer tools for identifying the originating client (browser, jvb or other).
+            this._sinkWrite(
             sink,
-            JSON.stringify([ 'connectionInfo', null, JSON.stringify(this.connectionInfo), Date.now() ]));
+            JSON.stringify([ 'connectionInfo',
+                null, JSON.stringify(this.connectionInfo), Date.now() ]));
+        }
 
         return sinkData;
     }
@@ -227,8 +236,7 @@ class DemuxSink extends Writable {
      * @param {Object} sinkData - Current sink metadata
      * @param {Object} data - New metadata.
      */
-    _sinkUpdateMetadata(sinkData, data) {
-
+    async _sinkUpdateMetadata(sinkData, data) {
         let metadata;
 
         // Browser clients will send identity data as an array so we need to extract the element that contains
@@ -239,14 +247,36 @@ class DemuxSink extends Writable {
             metadata = data;
         }
 
+        const meta = sinkData.meta;
+
         // A first level update of the properties will suffice.
-        sinkData.meta = {
-            ...sinkData.meta,
-            ...metadata
-        };
+        sinkData.meta = this._updateMeta(meta, metadata);
 
         // We expect metadata to be objects thus we need to stringify them before writing to the sink.
         this._sinkWrite(sinkData.sink, JSON.stringify(data));
+    }
+
+    /**
+     *
+     * @param {*} meta
+     * @param {*} metadata
+     * @returns
+     */
+    _updateMeta(meta, metadata) {
+        return {
+            ...meta,
+            ...metadata
+        };
+    }
+
+    /**
+     * Getting identity from file in case of reconnect.
+     */
+    async _getIdentityFromFile(fname) {
+        const filePath = utils.getDumpPath(this.tempPath, fname);
+        const { identity = '' } = await fileStore.getObjectsByKeys(filePath, [ 'identity' ]);
+
+        return identity;
     }
 
     /**

@@ -281,7 +281,6 @@ class TestCheckRouter {
     }
 }
 
-
 /**
  *
  * @param {*} server
@@ -301,12 +300,10 @@ function checkTestCompletion(appServer) {
  * @param {*} resultPath
  */
 function simulateConnection(dumpPath, resultPath, ua, protocolV) {
-    logger.info(`resultstring: ${resultPath}`);
     this.disconnected = false;
 
     const resultString = fs.readFileSync(resultPath);
 
-    logger.info(`resultstring: ${resultString}`);
     const resultList = JSON.parse(resultString);
     const resultTemplate = resultList.shift();
     const statsSessionId = uuidV4();
@@ -337,42 +334,30 @@ function simulateConnection(dumpPath, resultPath, ua, protocolV) {
         checkDoneResponse: body => {
             const parsedBody = JSON.parse(JSON.stringify(body));
 
-            if (this.disconnected === false) {
-                logger.info('[TEST] Handling DONE event with statsSessionId %j, body %j %j',
-                body.dumpInfo.clientId, body, this.disconnected);
+            resultList.shift();
 
-                logger.info(`[TEST] resultList: ${resultList}`);
-                resultList.shift();
+            resultTemplate.dumpInfo.clientId = statsSessionId;
+            resultTemplate.dumpInfo.userId = identityData.displayName;
+            resultTemplate.dumpInfo.app = identityData.applicationName;
+            resultTemplate.dumpInfo.sessionId = identityData.meetingUniqueId;
+            resultTemplate.dumpInfo.ampDeviceId = identityData.deviceId;
+            resultTemplate.dumpInfo.ampSessionId = identityData.sessionId;
+            resultTemplate.dumpInfo.conferenceUrl = identityData.confID;
 
-                resultTemplate.dumpInfo.clientId = statsSessionId;
-                resultTemplate.dumpInfo.userId = identityData.displayName;
-                resultTemplate.dumpInfo.app = identityData.applicationName;
-                resultTemplate.dumpInfo.sessionId = identityData.meetingUniqueId;
-                resultTemplate.dumpInfo.ampDeviceId = identityData.deviceId;
-                resultTemplate.dumpInfo.ampSessionId = identityData.sessionId;
-                resultTemplate.dumpInfo.conferenceUrl = identityData.confID;
+            resultTemplate.dumpInfo.startDate = body.dumpInfo.startDate;
+            resultTemplate.dumpInfo.endDate = body.dumpInfo.endDate;
+            resultTemplate.dumpInfo.dumpPath = body.dumpInfo.dumpPath;
 
-                resultTemplate.dumpInfo.startDate = body.dumpInfo.startDate;
-                resultTemplate.dumpInfo.endDate = body.dumpInfo.endDate;
-                resultTemplate.dumpInfo.dumpPath = body.dumpInfo.dumpPath;
+            // The size of the dump changes with every iteration as the application will add an additional
+            // 'connectionInfo' entry, thus metrics won't match.
+            delete parsedBody.features?.metrics;
+            delete resultTemplate.features?.metrics;
+            delete parsedBody.features?.browserInfo;
+            delete resultTemplate.features?.browserInfo;
 
-                // The size of the dump changes with every iteration as the application will add an additional
-                // 'connectionInfo' entry, thus metrics won't match.
-                delete parsedBody.features?.metrics;
-                delete resultTemplate.features?.metrics;
-                delete parsedBody.features?.browserInfo;
-                delete resultTemplate.features?.browserInfo;
-
-                assert.deepStrictEqual(parsedBody, resultTemplate);
-            } else {
-                // this is a reconnect dumpInfo is not relevant
-                logger.info('[TEST] Handling DONE event after reconnect with statsSessionId %j, body %j %j',
-                body.dumpInfo.clientId, body, this.disconnected);
-                assert.equal(statsSessionId, parsedBody.dumpInfo.clientId);
-            }
+            assert.deepStrictEqual(parsedBody, resultTemplate);
         },
         checkErrorResponse: body => {
-            logger.info('[TEST] Handling ERROR event with body %o', body);
             throw Error(`[TEST] Processing failed with:| ${JSON.stringify(body)} |`);
         },
         checkMetricsResponse: body => {

@@ -36,9 +36,15 @@ exports.getObjectsByKeys = (fileName, keys) => {
         rl.on('line', line => {
             if (line !== '') {
                 const jsonLine = JSON.parse(line);
+                const [ type,, obj ] = jsonLine;
+                const typeIndex = keys.indexOf(type);
 
-                if (keys.indexOf(jsonLine[0]) >= 0 && jsonLine[2] !== null) {
-                    response[jsonLine[0]] = jsonLine[2];
+                if (typeIndex >= 0 && obj !== null) {
+                    keys.splice(typeIndex, 1);
+                    response[type] = obj;
+                }
+                if (keys.length === 0) {
+                    rl.close();
                 }
             }
         });

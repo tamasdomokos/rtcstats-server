@@ -20,7 +20,7 @@ class WsHandler {
      *
      */
     constructor({ tempPath, reconnectTimeout, sequenceNumberSendingInterval, workerPool, config }) {
-        this.sessionIdTimeouts = {};
+        this.sessionTimeoutId = {};
         this.tempPath = tempPath;
         this.reconnectTimeout = reconnectTimeout;
         this.sequenceNumberSendingInterval = sequenceNumberSendingInterval;
@@ -102,13 +102,15 @@ class WsHandler {
         const queryObject = url.parse(referer, true).query;
         const statsSessionId = queryObject?.statsSessionId;
 
+        this._clearConnectionTimeout(statsSessionId);
         const connectionInfo = this._createConnectionInfo(upgradeReq, referer, ua, client);
         const demuxSink = this._createDemuxSink(connectionInfo);
 
         logger.info('[WsHandler] Client connected: %s', statsSessionId);
+
         const clientMessageHandler = this._createClientMessageHandler(statsSessionId, demuxSink, client);
 
-        this._clearConnectionTimeout(statsSessionId);
+
         clientMessageHandler.sendLastSequenceNumber(true);
 
         demuxSink.on('close-sink', ({ id, meta }) => {
@@ -122,12 +124,12 @@ class WsHandler {
             const { confID = '' } = meta;
             const tenantInfo = extractTenantDataFromUrl(confID);
 
-            const timemoutId = setTimeout(this.processData,
+            const timeoutId = setTimeout(this.processData,
                 this.reconnectTimeout,
                 id, meta, connectionInfo, tenantInfo
             );
 
-            this.sessionIdTimeouts[id] = timemoutId;
+            this.sessionTimeoutId[id] = timeoutId;
         });
 
         const connectionPipeline = pipeline(
@@ -221,15 +223,16 @@ class WsHandler {
     /**
      * Clear the connection timeout if the user is reconnected/
      *
-     * @param {*} id
+     * @param {*} timeoutId
      */
-    _clearConnectionTimeout(id) {
-        const timeoutId = this.sessionIdTimeouts[id];
+    _clearConnectionTimeout(sessionId) {
+        const timeoutId = this.sessionTimeoutId[sessionId];
 
         if (timeoutId) {
-            logger.info('[WsHandler] Client reconnected. Clear timeout for connectionId: %s', id);
-            PromCollector.clientReconnectedCount.inc();
             clearTimeout(timeoutId);
+            delete this.sessionTimeoutId[timeoutId];
+            logger.info('[WsHandler] Client reconnected. Clear timeout for connectionId: %s', sessionId);
+            PromCollector.clientReconnectedCount.inc();
         }
     }
 }

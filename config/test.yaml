@@ -6,7 +6,7 @@ server:
     skipLoadBalancerIp: false
     logLevel: info
     jsonConsoleLog: false
-    useHTTPS: true
+    useHTTPS: false
 
 amplitude:
     key: ''
@@ -15,12 +15,12 @@ features:
     sequenceNumberSendingInterval: 60000
     orphanFileCleanupTimeoutMinutes: 12
     cleanupCronIntervalMinutes: 720
-    reconnectTimeout: 20000
+    reconnectTimeout: 10000
 
 s3:
     accessKeyId:
     secretAccessKey:
-    region: us-west-2
+    region:
     bucket:
     useIAMAuth: false
 
