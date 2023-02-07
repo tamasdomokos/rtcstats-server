@@ -12,19 +12,12 @@ class OrphanFileHelper {
     /**
      *
      */
-    constructor({ tempPath, orphanFileCleanupTimeoutMinutes, wsHandler, cleanupCronIntervalMinutes }) {
+    constructor({ tempPath, orphanFileCleanupTimeoutMinutes, wsHandler, cleanupCronHour }) {
         this.tempPath = tempPath;
         this.orphanFileCleanupTimeoutMs = orphanFileCleanupTimeoutMinutes * 60 * 1000;
         this.wsHandler = wsHandler;
-        this.cleanupCronIntervalMs = cleanupCronIntervalMinutes * 60 * 1000;
+        this.cleanupCronHour = cleanupCronHour;
         this.processOldFiles = this.processOldFiles.bind(this);
-    }
-
-    /**
-     *
-     */
-    startCron() {
-        setInterval(this.cleanupCronIntervalMs, this.processOldFiles);
     }
 
     /**
@@ -51,6 +44,7 @@ class OrphanFileHelper {
             logger.error('[OrphanFileHelper] Temp path doesn\'t exists. path: ', this.tempPath);
             throw new Error(`Temp path doesn't exists. tempPath: ${this.tempPath}`);
         }
+        this.scheduleNext(this.cleanupCronHour);
     }
 
     /**
@@ -88,6 +82,30 @@ class OrphanFileHelper {
                 });
         }
     }
+
+    /**
+     *
+     * @param {*} func
+     */
+    scheduleNext(hour) {
+        const now = new Date();
+        let start;
+
+        if (now.getHours() < hour) {
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, 0, 0, 0);
+        } else {
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, hour, 0, 0, 0);
+        }
+
+        const wait = start.getTime() - now.getTime();
+
+        setTimeout(() => { // Wait until the specified hour
+            setInterval(() => {
+                this.processOldFiles();
+            }, 86400000); // Every day
+        }, wait);
+    }
 }
+
 
 module.exports = OrphanFileHelper;

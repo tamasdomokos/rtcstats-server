@@ -35,7 +35,7 @@ const { s3, features: {
     disableFeatExtraction,
     reconnectTimeout,
     sequenceNumberSendingInterval,
-    cleanupCronIntervalMinutes }
+    cleanupCronHour }
 } = config;
 
 const workerScriptPath = path.join(__dirname, './worker-pool/ExtractWorker.js');
@@ -60,7 +60,7 @@ const orphanFileHelper = new OrphanFileHelper({
     tempPath: getTempPath(),
     reconnectTimeout,
     wsHandler,
-    cleanupCronIntervalMinutes
+    cleanupCronHour
 });
 
 workerPool.on(ResponseType.DONE, body => {
