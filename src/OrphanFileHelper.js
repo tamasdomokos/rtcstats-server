@@ -89,20 +89,12 @@ class OrphanFileHelper {
      */
     scheduleNext(hour) {
         const now = new Date();
-        let start;
-
-        if (now.getHours() < hour) {
-            start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, 0, 0, 0);
-        } else {
-            start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, hour, 0, 0, 0);
-        }
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, hour, 0, 0, 0);
 
         const wait = start.getTime() - now.getTime();
 
         setTimeout(() => { // Wait until the specified hour
-            setInterval(() => {
-                this.processOldFiles();
-            }, 86400000); // Every day
+            this.processOldFiles();
         }, wait);
     }
 }
