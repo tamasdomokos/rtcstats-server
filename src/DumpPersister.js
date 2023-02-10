@@ -1,8 +1,8 @@
 
 const logger = require('./logging');
 const PromCollector = require('./metrics/PromCollector');
+const S3Manager = require('./store/S3Manager');
 const { saveEntryAssureUnique } = require('./store/dynamo');
-const initS3Store = require('./store/s3.js');
 const { asyncDeleteFile, getDumpPath } = require('./utils/utils');
 
 /**
@@ -25,7 +25,7 @@ class DumpPersister {
      */
     createDumpStorage(s3Config) {
         if (s3Config?.region) {
-            return initS3Store(s3Config);
+            return new S3Manager(s3Config);
         }
         logger.warn('[DumpPersister] S3 is not configured!');
     }
