@@ -36,9 +36,13 @@ async function processRequest(request) {
         const featureExtractor = new FeatureExtractor(request.body);
         const features = await featureExtractor.extract();
 
+        logger.info(`Tomi feature_extractor: ${JSON.stringify(features)}`);
         parentPort.postMessage({ type: ResponseType.DONE,
-            body: { dumpInfo: request.body,
-                features } });
+            body: { dumpInfo: {
+                ...features.dumpInfo,
+                ...request.body
+            },
+            features } });
     } catch (error) {
         parentPort.postMessage({
             type: ResponseType.ERROR,

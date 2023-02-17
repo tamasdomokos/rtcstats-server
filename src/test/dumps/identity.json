@@ -1,0 +1,19 @@
+{
+    "google-standard-stats-p2p-reconnect": {
+        "ampDeviceId": "ef95230a-7f08-4faa-8b3a-a075f1553600,,,,",
+        "ampSessionId": 1676641350202,
+        "app": "Integration Test",
+        "clientId": "14225fb0-a09a-4151-892f-fa60fc7e2d4f",
+        "conferenceUrl": "192.168.1.1/conf-14225fb0-a09a-4151-892f-fa60fc7e2d4f",
+        "dumpPath": "/Users/tdomokos/Projects/meetings/rtcstats-server/temp/14225fb0-a09a-4151-892f-fa60fc7e2d4f",
+        "endDate": 1676641360334,
+        "isJaaSTenant": false,
+        "jaasClientId": "",
+        "jaasMeetingFqn": "",
+        "sessionId": "2b28d71d-fabb-47fb-a071-3b891a182bda",
+        "startDate": "undefined",
+        "statsFormat": "chrome_standard",
+        "tenant": "",
+        "userId": "test-14225fb0-a09a-4151-892f-fa60fc7e2d4f"
+    }
+}

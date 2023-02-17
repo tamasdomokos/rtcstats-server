@@ -30,6 +30,25 @@ class FeatureExtractor {
             statsFormat
         } = dumpInfo;
 
+        this.dumpInfo = {
+            app: '',
+            conferenceId: '',
+            conferenceUrl: '',
+            dumpPath: '',
+            endDate: '',
+            endpointId: '',
+            startDate: '',
+            sessionId: '',
+            userId: '',
+            ampSessionId: '',
+            ampUserId: '',
+            ampDeviceId: '',
+            statsFormat: '',
+            isBreakoutRoom: '',
+            breakoutRoomId: '',
+            parentStatsSessionId: ''
+        };
+
         this.dumpPath = dumpPath;
         this.endpointId = endpointId;
         if (statsFormat) {
@@ -152,8 +171,16 @@ class FeatureExtractor {
         }
     };
 
+    // _handleMeta = dumpLineObj => {
+
+    // // }
+
+    // };
+
     _handleIdentity = dumpLineObj => {
         const [ , , identityEntry ] = dumpLineObj;
+
+        console.log(`Tomi Dumpline: ${JSON.stringify(identityEntry)}`);
         const { deploymentInfo: { crossRegion,
             envType,
             environment,
@@ -162,9 +189,24 @@ class FeatureExtractor {
             shard,
             userRegion } = { } } = identityEntry;
 
-        if (!this.endpointId) {
-            const { endpointId } = identityEntry;
 
+        const {
+            endpointId,
+            confID,
+            applicationName,
+            confName,
+            startDate,
+            meetingUniqueId,
+            displayName,
+            sessionId,
+            userId,
+            deviceId,
+            isBreakoutRoom,
+            roomId,
+            parentStatsSessionId
+        } = identityEntry;
+
+        if (!this.endpointId) {
             this.endpointId = endpointId;
         }
 
@@ -180,6 +222,20 @@ class FeatureExtractor {
             shard,
             userRegion
         };
+
+        this.dumpInfo.app = applicationName;
+        this.dumpInfo.conferenceId = confName;
+        this.dumpInfo.conferenceUrl = confID;
+        this.dumpInfo.endpointId = endpointId;
+        this.dumpInfo.startDate = startDate;
+        this.dumpInfo.sessionId = meetingUniqueId;
+        this.dumpInfo.userId = displayName;
+        this.dumpInfo.ampSessionId = sessionId;
+        this.dumpInfo.ampUserId = userId;
+        this.dumpInfo.ampDeviceId = deviceId;
+        this.dumpInfo.isBreakoutRoom = isBreakoutRoom;
+        this.dumpInfo.breakoutRoomId = roomId;
+        this.dumpInfo.parentStatsSessionId = parentStatsSessionId;
     };
 
     /**
@@ -521,7 +577,8 @@ class FeatureExtractor {
         const aggregateResults = this.aggregator.calculateAggregates(processedStats);
 
         this.features.aggregates = aggregateResults;
-
+        this.features.dumpInfo = this.dumpInfo;
+        logger.info(`tomi dump info: ${JSON.stringify(this.dumpInfo)}`);
         logger.debug('Aggregate results: %o', aggregateResults);
 
         return this.features;

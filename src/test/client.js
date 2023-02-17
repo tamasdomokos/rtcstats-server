@@ -51,8 +51,6 @@ class RtcstatsConnection extends EventEmitter {
         this.statsSessionId = statsSessionId;
         this.lastLine = 0;
         this.disconnected = false;
-
-        this._createIdentityData();
     }
 
     /**
@@ -65,8 +63,13 @@ class RtcstatsConnection extends EventEmitter {
     /**
      *
      */
-    getIdentityData() {
-        return this.identityData;
+    getIdentityData(file) {
+        const resultString = fs.readFileSync('./src/test/dumps/identity.json');
+        const result = JSON.parse(resultString);
+
+        console.log('test resultstring: ', resultString);
+
+        this.identityData = result[file];
     }
 
     /**
@@ -81,40 +84,25 @@ class RtcstatsConnection extends EventEmitter {
         this.ws.on('error', this._error);
     }
 
-    /**
-     *
-     */
-    _createIdentityData() {
-        this.identityData = {
-            sessionId: new Date().getTime(),
-            deviceId: uuidV4(),
-            applicationName: 'Integration Test',
-            confID: `192.168.1.1/conf-${this.statsSessionId}`,
-            displayName: `test-${this.statsSessionId}`,
-            meetingUniqueId: uuidV4(),
-            statsSessionId: this.statsSessionId
-        };
-    }
+    // /**
+    //  *
+    //  */
+    // _sendIdentity() {
+    //     const identity = [
+    //         'identity',
+    //         null,
+    //         this.identityData,
+    //         new Date()
+    //     ];
 
-    /**
-     *
-     */
-    _sendIdentity() {
-        const identity = [
-            'identity',
-            null,
-            this.identityData,
-            new Date()
-        ];
+    //     const identityRequest = {
+    //         statsSessionId: this.statsSessionId,
+    //         type: 'identity',
+    //         data: identity
+    //     };
 
-        const identityRequest = {
-            statsSessionId: this.statsSessionId,
-            type: 'identity',
-            data: identity
-        };
-
-        this._sendRequest(identityRequest);
-    }
+    //     this._sendRequest(identityRequest);
+    // }
 
     /**
      *
@@ -148,7 +136,8 @@ class RtcstatsConnection extends EventEmitter {
 
         if (this.lastLine === 0) {
             logger.info(`Connected ws ${this.id} setup time ${endWSOpen}`);
-            this._sendIdentity();
+
+            // this._sendIdentity();
         } else {
             logger.info(`Reconnected ws ${this.id} setup time ${endWSOpen}`);
         }
@@ -296,10 +285,13 @@ function checkTestCompletion(appServer) {
 
 /**
  *
+ * @param {*} file
  * @param {*} dumpPath
  * @param {*} resultPath
+ * @param {*} ua
+ * @param {*} protocolV
  */
-function simulateConnection(dumpPath, resultPath, ua, protocolV) {
+function simulateConnection(file, dumpPath, resultPath, ua, protocolV) {
     this.disconnected = false;
 
     const resultString = fs.readFileSync(resultPath);
@@ -327,13 +319,14 @@ function simulateConnection(dumpPath, resultPath, ua, protocolV) {
 
     const connection = new RtcstatsConnection(rtcstatsWsOptions);
 
-    const identityData = connection.getIdentityData();
+    const identityData = connection.getIdentityData(file);
 
     testCheckRouter.attachTest({
         statsSessionId,
         checkDoneResponse: body => {
             const parsedBody = JSON.parse(JSON.stringify(body));
 
+            console.log('Test_tomi: ', JSON.stringify(identityData));
             resultList.shift();
 
             resultTemplate.dumpInfo.clientId = statsSessionId;
@@ -385,53 +378,54 @@ function runTest() {
     testCheckRouter = new TestCheckRouter(server);
 
     simulateConnection(
+        'google-standard-stats-p2p-reconnect',
         './src/test/dumps/google-standard-stats-p2p-reconnect',
         './src/test/jest/results/google-standard-stats-p2p-result.json',
         BrowserUASamples.CHROME,
         ProtocolV.STANDARD
     );
 
-    simulateConnection(
-        './src/test/dumps/google-standard-stats-p2p',
-        './src/test/jest/results/google-standard-stats-p2p-result.json',
-        BrowserUASamples.CHROME,
-        ProtocolV.STANDARD
-    );
+    // simulateConnection(
+    //     './src/test/dumps/google-standard-stats-p2p',
+    //     './src/test/jest/results/google-standard-stats-p2p-result.json',
+    //     BrowserUASamples.CHROME,
+    //     ProtocolV.STANDARD
+    // );
 
-    simulateConnection(
-        './src/test/dumps/google-standard-stats-sfu',
-        './src/test/jest/results/google-standard-stats-sfu-result.json',
-        BrowserUASamples.CHROME,
-        ProtocolV.STANDARD
-    );
+    // simulateConnection(
+    //     './src/test/dumps/google-standard-stats-sfu',
+    //     './src/test/jest/results/google-standard-stats-sfu-result.json',
+    //     BrowserUASamples.CHROME,
+    //     ProtocolV.STANDARD
+    // );
 
-    simulateConnection(
-        './src/test/dumps/firefox-standard-stats-sfu',
-        './src/test/jest/results/firefox-standard-stats-sfu-result.json',
-        BrowserUASamples.FIREFOX,
-        ProtocolV.STANDARD
-    );
+    // simulateConnection(
+    //     './src/test/dumps/firefox-standard-stats-sfu',
+    //     './src/test/jest/results/firefox-standard-stats-sfu-result.json',
+    //     BrowserUASamples.FIREFOX,
+    //     ProtocolV.STANDARD
+    // );
 
-    simulateConnection(
-        './src/test/dumps/firefox97-standard-stats-sfu',
-        './src/test/jest/results/firefox97-standard-stats-sfu-result.json',
-        BrowserUASamples.FIREFOX,
-        ProtocolV.STANDARD
-    );
+    // simulateConnection(
+    //     './src/test/dumps/firefox97-standard-stats-sfu',
+    //     './src/test/jest/results/firefox97-standard-stats-sfu-result.json',
+    //     BrowserUASamples.FIREFOX,
+    //     ProtocolV.STANDARD
+    // );
 
-    simulateConnection(
-        './src/test/dumps/safari-standard-stats',
-        './src/test/jest/results/safari-standard-stats-result.json',
-        BrowserUASamples.SAFARI,
-        ProtocolV.STANDARD
-    );
+    // simulateConnection(
+    //     './src/test/dumps/safari-standard-stats',
+    //     './src/test/jest/results/safari-standard-stats-result.json',
+    //     BrowserUASamples.SAFARI,
+    //     ProtocolV.STANDARD
+    // );
 
-    simulateConnection(
-        './src/test/dumps/chrome96-standard-stats-p2p-add-transceiver',
-        './src/test/jest/results/chrome96-standard-stats-p2p-add-transceiver-result.json',
-        BrowserUASamples.CHROME,
-        ProtocolV.STANDARD
-    );
+    // simulateConnection(
+    //     './src/test/dumps/chrome96-standard-stats-p2p-add-transceiver',
+    //     './src/test/jest/results/chrome96-standard-stats-p2p-add-transceiver-result.json',
+    //     BrowserUASamples.CHROME,
+    //     ProtocolV.STANDARD
+    // );
 }
 
 setTimeout(runTest, 6000);
