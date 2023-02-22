@@ -22,7 +22,7 @@ class WsHandler {
      *
      */
     constructor({ tempPath, reconnectTimeout, sequenceNumberSendingInterval, workerPool, config }) {
-        this.sessionProperties = {};
+        this.sessionTimeoutIds = {};
         this.tempPath = tempPath;
         this.reconnectTimeout = reconnectTimeout;
         this.sequenceNumberSendingInterval = sequenceNumberSendingInterval;
@@ -56,7 +56,8 @@ class WsHandler {
         const dumpData = {
             clientId: id,
             dumpPath,
-            endDate: Date.now()
+            endDate: Date.now(),
+            startDate: connectionInfo.startDate
 
             // ...tenantInfo
         };
@@ -120,9 +121,7 @@ class WsHandler {
                 id, dumpPath, connectionInfo, tenantInfo
             );
 
-            this.sessionProperties[id] = {
-                timeoutId
-            };
+            this.sessionTimeoutIds[id] = timeoutId;
         });
 
         const connectionPipeline = pipeline(
@@ -216,7 +215,8 @@ class WsHandler {
             origin: upgradeReq.headers.origin,
             url: referer,
             userAgent: ua,
-            clientProtocol: client.protocol
+            clientProtocol: client.protocol,
+            startDate: Date.now()
         };
 
         connectionInfo.statsFormat = getStatsFormat(connectionInfo);
@@ -230,11 +230,11 @@ class WsHandler {
      * @param {*} timeoutId
      */
     _clearConnectionTimeout(sessionId) {
-        const timeoutId = this.sessionProperties[sessionId];
+        const timeoutId = this.sessionTimeoutIds[sessionId];
 
         if (timeoutId) {
             clearTimeout(timeoutId);
-            delete this.sessionProperties[timeoutId];
+            delete this.sessionTimeoutIds[timeoutId];
             logger.info('[WsHandler] Client reconnected. Clear timeout for connectionId: %s', sessionId);
             PromCollector.clientReconnectedCount.inc();
         }

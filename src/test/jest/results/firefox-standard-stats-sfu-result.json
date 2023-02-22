@@ -1,24 +1,16 @@
 [
   {
     "dumpInfo": {
-      "ampDeviceId": "60cba6ea-790a-4ec3-bf1c-b0d4f486c739",
-      "ampSessionId": 1641600699795,
-      "app": "Integration Test",
-      "clientId": "9195e361-2a5b-4749-923d-7f4d5d111c36",
-      "conferenceUrl": "192.168.1.1/conf-9195e361-2a5b-4749-923d-7f4d5d111c36",
-      "dumpPath": "/Users/nohlmeier/src/rtcstats-server/temp/9195e361-2a5b-4749-923d-7f4d5d111c36",
-      "endDate": 1641600699878,
-      "isJaaSTenant": false,
-      "jaasClientId": "",
-      "jaasMeetingFqn": "",
-      "sessionId": "d4fe59fa-d0ca-4984-9e8d-0ac8fd6780ed",
-      "startDate": 1641600699825,
-      "statsFormat": "firefox",
-      "userId": "test-9195e361-2a5b-4749-923d-7f4d5d111c36",
-      "isJaaSTenant": false,
-      "jaasClientId": "",
-      "jaasMeetingFqn": "",
-      "tenant": ""
+      "app": "Jitsi Meet",
+      "clientId": "9eb2f1a0-af02-443f-b97c-e415ecc857e7",
+      "conferenceUrl": "192.168.1.234:8080/closeoutfitsusefast",
+      "dumpPath": "/Users/nohlmeier/src/rtcstats-server/temp/9eb2f1a0-af02-443f-b97c-e415ecc857e7",
+      "endDate": 1641864713064,
+      "userId": "andrei-mac-firefox",
+      "ampSessionId": 1605197691597,
+      "ampUserId": null,
+      "ampDeviceId": "TdETRFgU45V3rbsihHkA6w",
+      "statsFormat": "firefox"
     },
     "features": {
       "aggregates": {

@@ -34,12 +34,12 @@ parentPort.on('message', request => {
 async function processRequest(request) {
     try {
         const featureExtractor = new FeatureExtractor(request.body);
-        const features = await featureExtractor.extract();
+        const { features, dumpInfo } = await featureExtractor.extract();
 
         logger.info(`Tomi feature_extractor: ${JSON.stringify(features)}`);
         parentPort.postMessage({ type: ResponseType.DONE,
             body: { dumpInfo: {
-                ...features.dumpInfo,
+                ...dumpInfo,
                 ...request.body
             },
             features } });

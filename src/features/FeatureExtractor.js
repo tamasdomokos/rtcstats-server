@@ -161,8 +161,11 @@ class FeatureExtractor {
 
         if (!this.statsFormat) {
             this.statsFormat = getStatsFormat(connectionInfoJson);
+            this.dumpInfo.statsFormat = this.statsFormat;
             this.collector = new QualityStatsCollector(this.statsFormat);
         }
+        console.log(`Tomi connectionInfo: ${JSON.stringify(connectionInfoJson)}`);
+        this.dumpInfo.startDate = connectionInfoJson?.startDate;
 
         const browserDetails = getBrowserDetails(connectionInfoJson);
 
@@ -195,7 +198,6 @@ class FeatureExtractor {
             confID,
             applicationName,
             confName,
-            startDate,
             meetingUniqueId,
             displayName,
             sessionId,
@@ -227,7 +229,6 @@ class FeatureExtractor {
         this.dumpInfo.conferenceId = confName;
         this.dumpInfo.conferenceUrl = confID;
         this.dumpInfo.endpointId = endpointId;
-        this.dumpInfo.startDate = startDate;
         this.dumpInfo.sessionId = meetingUniqueId;
         this.dumpInfo.userId = displayName;
         this.dumpInfo.ampSessionId = sessionId;
@@ -577,11 +578,14 @@ class FeatureExtractor {
         const aggregateResults = this.aggregator.calculateAggregates(processedStats);
 
         this.features.aggregates = aggregateResults;
-        this.features.dumpInfo = this.dumpInfo;
+
         logger.info(`tomi dump info: ${JSON.stringify(this.dumpInfo)}`);
         logger.debug('Aggregate results: %o', aggregateResults);
 
-        return this.features;
+        return {
+            features: this.features,
+            dumpInfo: this.dumpInfo
+        };
     }
 }
 

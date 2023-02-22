@@ -181,7 +181,7 @@ class DemuxSink extends Writable {
             id: resolvedId,
             sink,
             meta: {
-                startDate: Date.now(),
+                startDate: this.startDate,
                 dumpPath: this.dumpPath
             }
         };

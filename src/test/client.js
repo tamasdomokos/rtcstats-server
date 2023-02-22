@@ -11,6 +11,8 @@ const server = require('../app');
 const logger = require('../logging');
 const { uuidV4, ResponseType } = require('../utils/utils');
 
+const dumpPath = './src/test/dumps/';
+
 let testCheckRouter;
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // ignore self-signed cert
@@ -40,10 +42,10 @@ class RtcstatsConnection extends EventEmitter {
      *
      * @param {*} param0
      */
-    constructor({ id, serverUrl, dumpPath, readDelay = 1000, wsOptions, protocolV, statsSessionId }) {
+    constructor({ id, serverUrl, filePath, readDelay = 1000, wsOptions, protocolV, statsSessionId }) {
         super();
         this.id = id;
-        this.dumpPath = dumpPath;
+        this.filePath = filePath;
         this.serverUrl = serverUrl;
         this.wsOptions = wsOptions;
         this.readDelay = readDelay;
@@ -67,9 +69,9 @@ class RtcstatsConnection extends EventEmitter {
         const resultString = fs.readFileSync('./src/test/dumps/identity.json');
         const result = JSON.parse(resultString);
 
-        console.log('test resultstring: ', resultString);
+        console.log('test resultstring: ', JSON.stringify(result), file);
 
-        this.identityData = result[file];
+        return result[file];
     }
 
     /**
@@ -142,7 +144,7 @@ class RtcstatsConnection extends EventEmitter {
             logger.info(`Reconnected ws ${this.id} setup time ${endWSOpen}`);
         }
 
-        this.lineReader = new LineByLine(this.dumpPath);
+        this.lineReader = new LineByLine(this.filePath);
         let lineNumber = 0;
 
         this.lineReader.on('line', line => {
@@ -291,9 +293,11 @@ function checkTestCompletion(appServer) {
  * @param {*} ua
  * @param {*} protocolV
  */
-function simulateConnection(file, dumpPath, resultPath, ua, protocolV) {
-    this.disconnected = false;
+function simulateConnection(file, resultPath, ua, protocolV) {
+    const filePath = dumpPath + file;
 
+    this.disconnected = false;
+    console.log(`resultPath: ${resultPath}`);
     const resultString = fs.readFileSync(resultPath);
 
     const resultList = JSON.parse(resultString);
@@ -308,9 +312,9 @@ function simulateConnection(file, dumpPath, resultPath, ua, protocolV) {
     };
 
     const rtcstatsWsOptions = {
-        id: dumpPath,
+        id: file,
         serverUrl: `ws://localhost:3000/?statsSessionId=${statsSessionId}`,
-        dumpPath,
+        filePath,
         readDelay: 1,
         wsOptions,
         protocolV,
@@ -319,27 +323,38 @@ function simulateConnection(file, dumpPath, resultPath, ua, protocolV) {
 
     const connection = new RtcstatsConnection(rtcstatsWsOptions);
 
-    const identityData = connection.getIdentityData(file);
+    // const identityData = connection.getIdentityData(file);
+
+    // console.log(`Tomi: ${identityData}`);
+    // if (identityData === undefined) {
+    //     assert.fail('No identity data');
+    // }
 
     testCheckRouter.attachTest({
         statsSessionId,
         checkDoneResponse: body => {
             const parsedBody = JSON.parse(JSON.stringify(body));
 
-            console.log('Test_tomi: ', JSON.stringify(identityData));
+            console.log('Test_tomi: ', JSON.stringify(body));
             resultList.shift();
 
-            resultTemplate.dumpInfo.clientId = statsSessionId;
-            resultTemplate.dumpInfo.userId = identityData.displayName;
-            resultTemplate.dumpInfo.app = identityData.applicationName;
-            resultTemplate.dumpInfo.sessionId = identityData.meetingUniqueId;
-            resultTemplate.dumpInfo.ampDeviceId = identityData.deviceId;
-            resultTemplate.dumpInfo.ampSessionId = identityData.sessionId;
-            resultTemplate.dumpInfo.conferenceUrl = identityData.confID;
 
-            resultTemplate.dumpInfo.startDate = body.dumpInfo.startDate;
-            resultTemplate.dumpInfo.endDate = body.dumpInfo.endDate;
+            resultTemplate.dumpInfo.clientId = statsSessionId;
             resultTemplate.dumpInfo.dumpPath = body.dumpInfo.dumpPath;
+            resultTemplate.dumpInfo.endDate = body.dumpInfo.endDate;
+            resultTemplate.dumpInfo.startDate = body.dumpInfo.startDate;
+
+            // resultTemplate.dumpInfo.userId = identityData.userId;
+            // resultTemplate.dumpInfo.app = identityData.app;
+            // resultTemplate.dumpInfo.sessionId = identityData.sessionId;
+            // resultTemplate.dumpInfo.ampDeviceId = identityData.ampDeviceId;
+            // resultTemplate.dumpInfo.ampSessionId = identityData.sessionId;
+            // resultTemplate.dumpInfo.conferenceUrl = identityData.confID;
+
+            // console.log('Test_tomi1: ', resultTemplate.dumpInfo.ampDeviceId, identityData.ampDeviceId);
+
+            // resultTemplate.dumpInfo.startDate = body.dumpInfo.startDate;
+
 
             // The size of the dump changes with every iteration as the application will add an additional
             // 'connectionInfo' entry, thus metrics won't match.
@@ -379,53 +394,52 @@ function runTest() {
 
     simulateConnection(
         'google-standard-stats-p2p-reconnect',
-        './src/test/dumps/google-standard-stats-p2p-reconnect',
         './src/test/jest/results/google-standard-stats-p2p-result.json',
         BrowserUASamples.CHROME,
         ProtocolV.STANDARD
     );
 
-    // simulateConnection(
-    //     './src/test/dumps/google-standard-stats-p2p',
-    //     './src/test/jest/results/google-standard-stats-p2p-result.json',
-    //     BrowserUASamples.CHROME,
-    //     ProtocolV.STANDARD
-    // );
+    simulateConnection(
+        'google-standard-stats-p2p',
+        './src/test/jest/results/google-standard-stats-p2p-result.json',
+        BrowserUASamples.CHROME,
+        ProtocolV.STANDARD
+    );
 
-    // simulateConnection(
-    //     './src/test/dumps/google-standard-stats-sfu',
-    //     './src/test/jest/results/google-standard-stats-sfu-result.json',
-    //     BrowserUASamples.CHROME,
-    //     ProtocolV.STANDARD
-    // );
+    simulateConnection(
+        'google-standard-stats-sfu',
+        './src/test/jest/results/google-standard-stats-sfu-result.json',
+        BrowserUASamples.CHROME,
+        ProtocolV.STANDARD
+    );
 
-    // simulateConnection(
-    //     './src/test/dumps/firefox-standard-stats-sfu',
-    //     './src/test/jest/results/firefox-standard-stats-sfu-result.json',
-    //     BrowserUASamples.FIREFOX,
-    //     ProtocolV.STANDARD
-    // );
+    simulateConnection(
+        'firefox-standard-stats-sfu',
+        './src/test/jest/results/firefox-standard-stats-sfu-result.json',
+        BrowserUASamples.FIREFOX,
+        ProtocolV.STANDARD
+    );
 
-    // simulateConnection(
-    //     './src/test/dumps/firefox97-standard-stats-sfu',
-    //     './src/test/jest/results/firefox97-standard-stats-sfu-result.json',
-    //     BrowserUASamples.FIREFOX,
-    //     ProtocolV.STANDARD
-    // );
+    simulateConnection(
+        'firefox97-standard-stats-sfu',
+        './src/test/jest/results/firefox97-standard-stats-sfu-result.json',
+        BrowserUASamples.FIREFOX,
+        ProtocolV.STANDARD
+    );
 
-    // simulateConnection(
-    //     './src/test/dumps/safari-standard-stats',
-    //     './src/test/jest/results/safari-standard-stats-result.json',
-    //     BrowserUASamples.SAFARI,
-    //     ProtocolV.STANDARD
-    // );
+    simulateConnection(
+        'safari-standard-stats',
+        './src/test/jest/results/safari-standard-stats-result.json',
+        BrowserUASamples.SAFARI,
+        ProtocolV.STANDARD
+    );
 
-    // simulateConnection(
-    //     './src/test/dumps/chrome96-standard-stats-p2p-add-transceiver',
-    //     './src/test/jest/results/chrome96-standard-stats-p2p-add-transceiver-result.json',
-    //     BrowserUASamples.CHROME,
-    //     ProtocolV.STANDARD
-    // );
+    simulateConnection(
+        'chrome96-standard-stats-p2p-add-transceiver',
+        './src/test/jest/results/chrome96-standard-stats-p2p-add-transceiver-result.json',
+        BrowserUASamples.CHROME,
+        ProtocolV.STANDARD
+    );
 }
 
 setTimeout(runTest, 6000);

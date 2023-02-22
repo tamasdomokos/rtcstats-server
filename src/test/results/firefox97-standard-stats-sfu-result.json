@@ -9,8 +9,9 @@
       "startDate": 1641864713041,
       "sessionId": "1e501074-10e3-48ec-99bd-9c402d53513c",
       "userId": "test-9eb2f1a0-af02-443f-b97c-e415ecc857e7",
-      "ampSessionId": 1641864713012,
-      "ampDeviceId": "d5f91167-4d2e-445b-a48d-492edcd3b3b9",
+      "ampSessionId": 1605197691597,
+      "ampUserId": null,
+      "ampDeviceId": "test-60cba6ea-790a-4ec3-bf1c-b0d4f486c739",
       "statsFormat": "firefox"
     },
     "features": {

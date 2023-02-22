@@ -2,15 +2,16 @@
   {
     "dumpInfo": {
       "app": "Integration Test",
-      "clientId": "9195e361-2a5b-4749-923d-7f4d5d111c36",
-      "conferenceUrl": "192.168.1.1/conf-9195e361-2a5b-4749-923d-7f4d5d111c36",
-      "dumpPath": "/Users/nohlmeier/src/rtcstats-server/temp/9195e361-2a5b-4749-923d-7f4d5d111c36",
-      "endDate": 1641600699878,
-      "startDate": 1641600699825,
-      "sessionId": "d4fe59fa-d0ca-4984-9e8d-0ac8fd6780ed",
-      "userId": "test-9195e361-2a5b-4749-923d-7f4d5d111c36",
-      "ampSessionId": 1641600699795,
-      "ampDeviceId": "60cba6ea-790a-4ec3-bf1c-b0d4f486c739",
+      "clientId": "9eb2f1a0-af02-443f-b97c-e415ecc857e7",
+      "conferenceUrl": "192.168.1.1/conf-9eb2f1a0-af02-443f-b97c-e415ecc857e7",
+      "dumpPath": "/Users/nohlmeier/src/rtcstats-server/temp/9eb2f1a0-af02-443f-b97c-e415ecc857e7",
+      "endDate": 1641864713064,
+      "startDate": 1641864713041,
+      "sessionId": "1e501074-10e3-48ec-99bd-9c402d53513c",
+      "userId": "test-9eb2f1a0-af02-443f-b97c-e415ecc857e7",
+      "ampSessionId": 1605197691597,
+      "ampUserId": null,
+      "ampDeviceId": "test-60cba6ea-790a-4ec3-bf1c-b0d4f486c739",
       "statsFormat": "firefox"
     },
     "features": {
