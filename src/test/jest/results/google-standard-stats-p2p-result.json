@@ -5,8 +5,8 @@
       "ampDeviceId": "Z4pw0CT9udBLc9rSQ4ytH5",
       "app": "Jitsi Meet",
       "conferenceUrl": "192.168.1.234:8080/fullmechanismslastimpolitely",
-      "statsFormat": "chrome_standard",
       "userId": "andrei-win-1",
+      "statsFormat": "chrome_standard",
      "ampUserId": null
     },
     "features": {

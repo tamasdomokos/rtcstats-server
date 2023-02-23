@@ -6,10 +6,8 @@
       "ampUserId": null,
       "app": "Jitsi Meet",
       "conferenceId": "ElderlyNetworksAcquireWeekly",
-      "clientId": "4120e546-9c26-4532-812d-81c05c960889",
       "conferenceUrl": "drno.jitsi.net/elderlynetworksacquireweekly",
       "endpointId":"d58e53af",
-      "dumpPath": "/Users/nohlmeier/src/rtcstats-server/temp/bac9ca22-8c8f-45a4-92a2-a3411cfe398a",
       "sessionId": "68282950-1f48-404a-a12e-9ed92f955a54",
       "statsFormat": "chrome_standard",
       "userId": "Nichole-ryS"

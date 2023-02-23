@@ -5,10 +5,7 @@
       "ampSessionId": 1605197674060,
       "ampUserId": null,
       "app": "Jitsi Meet",
-      "clientId": "9cf994cb-d86a-4fd7-99c6-ccbe75044feb",
       "conferenceUrl": "192.168.1.234:8080/closeoutfitsusefast",
-      "dumpPath": "/Users/nohlmeier/src/rtcstats-server/temp/9f2af46d-0dc9-4040-b1fa-f4bb55f8ab19",
-      "endDate": 1641941576116,
       "statsFormat": "safari",
       "userId": "andreig-safari"
     },

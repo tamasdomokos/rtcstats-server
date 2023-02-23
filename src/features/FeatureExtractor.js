@@ -30,29 +30,13 @@ class FeatureExtractor {
             statsFormat
         } = dumpInfo;
 
-        this.dumpInfo = {
-            app: '',
-            conferenceId: '',
-            conferenceUrl: '',
-            dumpPath: '',
-            endDate: '',
-            endpointId: '',
-            startDate: '',
-            sessionId: '',
-            userId: '',
-            ampSessionId: '',
-            ampUserId: '',
-            ampDeviceId: '',
-            statsFormat: '',
-            isBreakoutRoom: '',
-            breakoutRoomId: '',
-            parentStatsSessionId: ''
-        };
+        this.dumpInfo = {};
 
         this.dumpPath = dumpPath;
         this.endpointId = endpointId;
         if (statsFormat) {
             this.statsFormat = statsFormat;
+            this.dumpInfo.statsFormat = statsFormat;
             this.collector = new QualityStatsCollector(statsFormat);
         }
 
@@ -164,7 +148,10 @@ class FeatureExtractor {
             this.dumpInfo.statsFormat = this.statsFormat;
             this.collector = new QualityStatsCollector(this.statsFormat);
         }
-        this.dumpInfo.startDate = connectionInfoJson?.startDate;
+
+        if (typeof connectionInfoJson?.startDate !== 'undefined') {
+            this.dumpInfo.startDate = connectionInfoJson?.startDate;
+        }
 
         const browserDetails = getBrowserDetails(connectionInfoJson);
 
@@ -172,12 +159,6 @@ class FeatureExtractor {
             this.features.browserInfo = browserDetails;
         }
     };
-
-    // _handleMeta = dumpLineObj => {
-
-    // // }
-
-    // };
 
     _handleIdentity = dumpLineObj => {
         const [ , , identityEntry ] = dumpLineObj;
@@ -223,18 +204,42 @@ class FeatureExtractor {
             userRegion
         };
 
-        this.dumpInfo.app = applicationName;
-        this.dumpInfo.conferenceId = confName;
-        this.dumpInfo.conferenceUrl = confID;
-        this.dumpInfo.endpointId = endpointId;
-        this.dumpInfo.sessionId = meetingUniqueId;
-        this.dumpInfo.userId = displayName;
-        this.dumpInfo.ampSessionId = sessionId;
-        this.dumpInfo.ampUserId = userId;
-        this.dumpInfo.ampDeviceId = deviceId;
-        this.dumpInfo.isBreakoutRoom = isBreakoutRoom;
-        this.dumpInfo.breakoutRoomId = roomId;
-        this.dumpInfo.parentStatsSessionId = parentStatsSessionId;
+        if (typeof applicationName !== 'undefined') {
+            this.dumpInfo.app = applicationName;
+        }
+        if (typeof confName !== 'undefined') {
+            this.dumpInfo.conferenceId = confName;
+        }
+        if (typeof confID !== 'undefined') {
+            this.dumpInfo.conferenceUrl = confID;
+        }
+        if (typeof endpointId !== 'undefined') {
+            this.dumpInfo.endpointId = endpointId;
+        }
+        if (typeof meetingUniqueId !== 'undefined') {
+            this.dumpInfo.sessionId = meetingUniqueId;
+        }
+        if (typeof displayName !== 'undefined') {
+            this.dumpInfo.userId = displayName;
+        }
+        if (typeof sessionId !== 'undefined') {
+            this.dumpInfo.ampSessionId = sessionId;
+        }
+        if (typeof userId !== 'undefined') {
+            this.dumpInfo.ampUserId = userId;
+        }
+        if (typeof deviceId !== 'undefined') {
+            this.dumpInfo.ampDeviceId = deviceId;
+        }
+        if (typeof isBreakoutRoom !== 'undefined') {
+            this.dumpInfo.isBreakoutRoom = isBreakoutRoom;
+        }
+        if (typeof roomId !== 'undefined') {
+            this.dumpInfo.breakoutRoomId = roomId;
+        }
+        if (typeof parentStatsSessionId !== 'undefined') {
+            this.dumpInfo.parentStatsSessionId = parentStatsSessionId;
+        }
     };
 
     /**
@@ -577,7 +582,6 @@ class FeatureExtractor {
 
         this.features.aggregates = aggregateResults;
 
-        logger.info(`tomi dump info: ${JSON.stringify(this.dumpInfo)}`);
         logger.debug('Aggregate results: %o', aggregateResults);
 
         return {

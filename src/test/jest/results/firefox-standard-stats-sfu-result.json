@@ -2,15 +2,12 @@
   {
     "dumpInfo": {
       "app": "Jitsi Meet",
-      "clientId": "9eb2f1a0-af02-443f-b97c-e415ecc857e7",
       "conferenceUrl": "192.168.1.234:8080/closeoutfitsusefast",
-      "dumpPath": "/Users/nohlmeier/src/rtcstats-server/temp/9eb2f1a0-af02-443f-b97c-e415ecc857e7",
-      "endDate": 1641864713064,
       "userId": "andrei-mac-firefox",
       "ampSessionId": 1605197691597,
       "ampUserId": null,
-      "ampDeviceId": "TdETRFgU45V3rbsihHkA6w",
-      "statsFormat": "firefox"
+      "statsFormat": "firefox",
+      "ampDeviceId": "TdETRFgU45V3rbsihHkA6w"
     },
     "features": {
       "aggregates": {
