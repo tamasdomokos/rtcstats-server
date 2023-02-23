@@ -164,7 +164,6 @@ class FeatureExtractor {
             this.dumpInfo.statsFormat = this.statsFormat;
             this.collector = new QualityStatsCollector(this.statsFormat);
         }
-        console.log(`Tomi connectionInfo: ${JSON.stringify(connectionInfoJson)}`);
         this.dumpInfo.startDate = connectionInfoJson?.startDate;
 
         const browserDetails = getBrowserDetails(connectionInfoJson);
@@ -183,7 +182,6 @@ class FeatureExtractor {
     _handleIdentity = dumpLineObj => {
         const [ , , identityEntry ] = dumpLineObj;
 
-        console.log(`Tomi Dumpline: ${JSON.stringify(identityEntry)}`);
         const { deploymentInfo: { crossRegion,
             envType,
             environment,
