@@ -10,7 +10,11 @@
       "statsFormat": "firefox",
       "conferenceId": "ObviousGroupsAnticipateCertainly",
       "endpointId": "59d7f6f7",
-      "sessionId": "eb568c58-b21d-4e7b-b566-665a90d1a009"
+      "sessionId": "eb568c58-b21d-4e7b-b566-665a90d1a009",
+      "isJaaSTenant": false,
+      "jaasClientId": "",
+      "jaasMeetingFqn": "",
+      "tenant": ""
     },
     "features": {
       "aggregates": {

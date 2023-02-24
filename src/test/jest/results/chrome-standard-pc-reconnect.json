@@ -10,7 +10,11 @@
       "endpointId": "69cebf74",
       "sessionId": "f90acd63-a86e-4351-b2fe-c584fa14893e",
       "statsFormat": "chrome_standard",
-      "userId": "Lesly-U1W"
+      "userId": "Lesly-U1W",
+      "isJaaSTenant": false,
+      "jaasClientId": "",
+      "jaasMeetingFqn": "",
+      "tenant": ""
     },
     "features": {
       "aggregates": {

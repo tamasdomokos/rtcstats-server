@@ -7,7 +7,11 @@
       "ampSessionId": 1605197691597,
       "ampUserId": null,
       "statsFormat": "firefox",
-      "ampDeviceId": "TdETRFgU45V3rbsihHkA6w"
+      "ampDeviceId": "TdETRFgU45V3rbsihHkA6w",
+      "isJaaSTenant": false,
+      "jaasClientId": "",
+      "jaasMeetingFqn": "",
+      "tenant": ""
     },
     "features": {
       "aggregates": {

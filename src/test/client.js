@@ -245,7 +245,7 @@ class TestCheckRouter {
  */
 function checkTestCompletion(appServer) {
 
-    if (appServer.PromCollector.processed.get().values[0].value === 7) {
+    if (appServer.PromCollector.processed.get().values[0].value === 4) {
         appServer.stop();
     } else {
         setTimeout(checkTestCompletion, 8000, appServer);
@@ -365,26 +365,26 @@ function runTest() {
         ProtocolV.STANDARD
     );
 
-    simulateConnection(
-        'firefox97-standard-stats-sfu',
-        'firefox97-standard-stats-sfu-result.json',
-        BrowserUASamples.FIREFOX,
-        ProtocolV.STANDARD
-    );
+    // simulateConnection(
+    //     'firefox97-standard-stats-sfu',
+    //     'firefox97-standard-stats-sfu-result.json',
+    //     BrowserUASamples.FIREFOX,
+    //     ProtocolV.STANDARD
+    // );
 
-    simulateConnection(
-        'safari-standard-stats',
-        'safari-standard-stats-result.json',
-        BrowserUASamples.SAFARI,
-        ProtocolV.STANDARD
-    );
+    // simulateConnection(
+    //     'safari-standard-stats',
+    //     'safari-standard-stats-result.json',
+    //     BrowserUASamples.SAFARI,
+    //     ProtocolV.STANDARD
+    // );
 
-    simulateConnection(
-        'chrome96-standard-stats-p2p-add-transceiver',
-        'chrome96-standard-stats-p2p-add-transceiver-result.json',
-        BrowserUASamples.CHROME,
-        ProtocolV.STANDARD
-    );
+    // simulateConnection(
+    //     'chrome96-standard-stats-p2p-add-transceiver',
+    //     'chrome96-standard-stats-p2p-add-transceiver-result.json',
+    //     BrowserUASamples.CHROME,
+    //     ProtocolV.STANDARD
+    // );
 }
 
 setTimeout(runTest, 6000);

@@ -140,7 +140,7 @@ class DemuxSink extends Writable {
      *
      * @param {string} id - sink id as saved in the sinkMap
      */
-    _handleSinkClose(id, meta) {
+    _handleSinkClose(id) {
         const sinkData = this.sinkMap.get(id);
 
         // Sanity check, make sure the data is available if not log an error and just send the id such that any
@@ -148,8 +148,7 @@ class DemuxSink extends Writable {
         if (sinkData) {
             // we need to emit this on file stream finish
             this.emit('close-sink', {
-                id: sinkData.id,
-                meta: this._updateMeta(sinkData.meta, meta)
+                id: sinkData.id
             });
         } else {
             this.log.error('[Demux] sink on close meta should be available id:', id);
@@ -212,36 +211,8 @@ class DemuxSink extends Writable {
      * @param {Object} data - New metadata.
      */
     async _sinkUpdateMetadata(sinkData, data) {
-        let metadata;
-
-        // Browser clients will send identity data as an array so we need to extract the element that contains
-        // the actual metadata
-        if (Array.isArray(data)) {
-            metadata = data[2];
-        } else {
-            metadata = data;
-        }
-
-        const meta = sinkData.meta;
-
-        // A first level update of the properties will suffice.
-        sinkData.meta = this._updateMeta(meta, metadata);
-
         // We expect metadata to be objects thus we need to stringify them before writing to the sink.
         this._sinkWrite(sinkData.sink, JSON.stringify(data));
-    }
-
-    /**
-     *
-     * @param {*} meta
-     * @param {*} metadata
-     * @returns
-     */
-    _updateMeta(meta, metadata) {
-        return {
-            ...meta,
-            ...metadata
-        };
     }
 
     /**

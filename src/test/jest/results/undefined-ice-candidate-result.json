@@ -10,7 +10,11 @@
       "endpointId": "cced643e",
       "sessionId": "41c8f2f2-eab3-49c7-b568-6d7d4e51fb81",
       "statsFormat": "chrome_standard",
-      "userId": "XXXX-XXX"
+      "userId": "XXXX-XXX",
+      "isJaaSTenant": false,
+      "jaasClientId": "",
+      "jaasMeetingFqn": "",
+      "tenant": ""
     },
     "features": {
       "aggregates": {

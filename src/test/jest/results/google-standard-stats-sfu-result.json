@@ -7,7 +7,11 @@
       "conferenceUrl": "192.168.1.234:8080/fullmechanismslastimpolitely",
       "userId": "andrei-win-1",
       "statsFormat": "chrome_standard",
-     "ampUserId": null
+     "ampUserId": null,
+     "isJaaSTenant": false,
+     "jaasClientId": "",
+     "jaasMeetingFqn": "",
+     "tenant": ""
     },
     "features": {
       "aggregates": {

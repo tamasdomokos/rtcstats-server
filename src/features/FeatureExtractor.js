@@ -8,6 +8,7 @@ const readline = require('readline');
 const logger = require('../logging');
 const statsDecompressor = require('../utils//getstats-deltacompression').decompress;
 const { getStatsFormat, getBrowserDetails } = require('../utils/stats-detection');
+const { extractTenantDataFromUrl } = require('../utils/utils');
 
 const QualityStatsCollector = require('./quality-stats/QualityStatsCollector');
 const StatsAggregator = require('./quality-stats/StatsAggregator');
@@ -169,7 +170,7 @@ class FeatureExtractor {
             region,
             releaseNumber,
             shard,
-            userRegion } = { } } = identityEntry;
+            userRegion } = {} } = identityEntry;
 
 
         const {
@@ -240,6 +241,13 @@ class FeatureExtractor {
         if (typeof parentStatsSessionId !== 'undefined') {
             this.dumpInfo.parentStatsSessionId = parentStatsSessionId;
         }
+
+        const tenantInfo = extractTenantDataFromUrl(confID);
+
+        this.dumpInfo.tenant = tenantInfo.tenant;
+        this.dumpInfo.jaasMeetingFqn = tenantInfo.jaasMeetingFqn;
+        this.dumpInfo.jaasClientId = tenantInfo.jaasClientId;
+        this.dumpInfo.isJaaSTenant = tenantInfo.isJaaSTenant;
     };
 
     /**
@@ -312,19 +320,25 @@ class FeatureExtractor {
 
         // Check if the current sessions's user is the new dominant speaker, if so mark it with an event.
         if (newDominantSpeaker === this.endpointId) {
-            dominantSpeakerEvents.push({ type: 'DOMINANT_SPEAKER_STARTED',
-                timestamp });
+            dominantSpeakerEvents.push({
+                type: 'DOMINANT_SPEAKER_STARTED',
+                timestamp
+            });
 
-        // If the previous dominant speaker was the current session's user that means that he is no longer the dominant
-        // speaker so we mark that with an event.
+            // If the previous dominant speaker was the current session's user that means that he is no longer the dominant
+            // speaker so we mark that with an event.
         } else if (currentDominantSpeaker === this.endpointId) {
-            dominantSpeakerEvents.push({ type: 'DOMINANT_SPEAKER_STOPPED',
-                timestamp });
+            dominantSpeakerEvents.push({
+                type: 'DOMINANT_SPEAKER_STOPPED',
+                timestamp
+            });
         }
 
         // Initialize speakerStats for endpoint if not present.
-        speakerStats[newDominantSpeaker] ??= { speakerTime: 0,
-            dominantSpeakerChanges: 0 };
+        speakerStats[newDominantSpeaker] ??= {
+            speakerTime: 0,
+            dominantSpeakerChanges: 0
+        };
 
         const { [newDominantSpeaker]: newDominantSpeakerStats } = speakerStats;
 
